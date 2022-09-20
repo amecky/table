@@ -1,4 +1,4 @@
-module github.com/amecky/report-table
+module github.com/amecky/table
 
 go 1.17
 
