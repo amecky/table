@@ -13,6 +13,36 @@ import (
 	"github.com/muesli/termenv"
 )
 
+type FilterFunc func(r *Row) bool
+
+type FilterDef struct {
+	Header     string
+	Comparator int
+	Value      string
+}
+
+func BuildFilterDef(txt string) FilterDef {
+	ret := FilterDef{}
+	entries := strings.Split(txt, " ")
+	if len(entries) == 3 {
+		ret.Header = entries[0]
+		ret.Value = entries[2]
+		if entries[1] == "==" {
+			ret.Comparator = 1
+		}
+		if entries[1] == "!=" {
+			ret.Comparator = 2
+		}
+		if entries[1] == ">=" {
+			ret.Comparator = 3
+		}
+		if entries[1] == "<=" {
+			ret.Comparator = 4
+		}
+	}
+	return ret
+}
+
 type ReportOptions struct {
 	StartDate   string
 	EndDate     string
@@ -105,6 +135,15 @@ func NewTable(name string, headers []string) *Table {
 func (rt *Table) SetHeaderName(idx int, name string) *Table {
 	rt.Headers[idx] = name
 	return rt
+}
+
+func (rt *Table) FindColumnIndex(name string) int {
+	for i, h := range rt.Headers {
+		if h == name {
+			return i
+		}
+	}
+	return -1
 }
 
 func (rt *Table) SetText(row, col int, txt string) {
@@ -254,6 +293,21 @@ func (tr *Row) AddCenteredText(txt string, marker int) *Row {
 	return tr
 }
 
+func (tr *Row) AddBlock(positive bool) *Row {
+	if len(tr.Cells) < tr.Size {
+		marker := 6
+		if !positive {
+			marker = 2
+		}
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      "■",
+			Marker:    marker,
+			Alignment: AlignCenter,
+		})
+	}
+	return tr
+}
+
 func (tr *Row) AddChangePercent(v float64) *Row {
 	if len(tr.Cells) < tr.Size {
 		marker := 0
@@ -315,6 +369,15 @@ func (tr *Row) AddChange(change, changePercent float64) *Row {
 }
 
 func (tr *Row) AddRelationPercentage(first, second float64) *Row {
+	if second == 0.0 {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      "-",
+			Marker:    0,
+			Alignment: AlignRight,
+			Value:     0.0,
+		})
+		return tr
+	}
 	changePercent := (first/second - 1.0) * 100.0
 	marker := 0
 	if changePercent > 0.0 {
@@ -359,19 +422,19 @@ const TableTemplate = `
 
 				{{ $clr := ""}}
 				{{if eq .Marker 2 }}
-					{{$clr = "color:#DE3700;"}}
+					{{$clr = "color:#ee4035;"}}
 				{{end}}
 				{{if eq .Marker 3 }}
-					{{$clr = "color:#F58B00;"}}
+					{{$clr = "color:#f2ce02;"}}
 				{{end}}
 				{{if eq .Marker 4 }}
-					{{$clr = "color:#E1FF00;"}}
+					{{$clr = "color:#0392cf;"}}
 				{{end}}
 				{{if eq .Marker 5 }}
-					{{$clr = "color:#92E000;"}}
+					{{$clr = "color:#85e62c;"}}
 				{{end}}
 				{{if eq .Marker 6 }}
-					{{$clr = "color:#2AA10F;"}}
+					{{$clr = "color:#209c05;"}}
 				{{end}}
 
 				{{$al := ""}}				
@@ -459,6 +522,34 @@ func (rt *Table) RebuildSizes() {
 	}
 }
 
+func (tr *Table) Filter(f string) *Table {
+	def := BuildFilterDef(f)
+	ret := NewTable(tr.Name, tr.Headers)
+	rc := tr.FindColumnIndex(def.Header)
+	if rc != -1 {
+		for _, r := range tr.Rows {
+			add := 0
+			n := r.Cells[rc].Text
+			if def.Comparator == 1 && n == def.Value {
+				add = 1
+			}
+			if def.Comparator == 2 && n != def.Value {
+				add = 1
+			}
+			if def.Comparator == 3 && n >= def.Value {
+				add = 1
+			}
+			if def.Comparator == 4 && n <= def.Value {
+				add = 1
+			}
+			if add == 1 {
+				ret.Rows = append(ret.Rows, r)
+			}
+		}
+	}
+	return ret
+}
+
 func internalLen(txt string) int {
 	return utf8.RuneCountInString(txt)
 }
@@ -492,6 +583,7 @@ type ConsoleRenderer struct {
 	Styles  Styles
 }
 
+// colors := []string{"#ee4035", "#f37736", "#0392cf", "#fdf498", "#7bc043"}
 func NewConsoleRenderer() *ConsoleRenderer {
 	styles := Styles{
 		Text: NewStyle(
@@ -515,27 +607,27 @@ func NewConsoleRenderer() *ConsoleRenderer {
 			true,
 		),
 		ClassAMarker: NewStyle(
-			"#DE3700",
+			"#ee4035",
 			"",
 			true,
 		),
 		ClassBMarker: NewStyle(
-			"#F58B00",
+			"#f37736",
 			"",
 			true,
 		),
 		ClassCMarker: NewStyle(
-			"#E1FF00",
+			"#0392cf",
 			"",
 			true,
 		),
 		ClassDMarker: NewStyle(
-			"#92E000",
+			"#fdf498",
 			"",
 			true,
 		),
 		ClassEMarker: NewStyle(
-			"#2AA10F",
+			"#7bc043",
 			"",
 			true,
 		),
@@ -741,11 +833,19 @@ const HeatMapTemplate = `
 `
 
 const InlineHeatMapTemplate = `
-<ul class="hmul">
-	{{ range .Lines}}		
-		{{range .Entries}}
-			<il class="ilhm hmc-{{.Category}}"><b>{{.Name}} | {{.Price}} | {{.Change}}</b>	</il>
-		{{end}}	
-	{{end}}
-</ul>
+{{ range .Lines}}	
+<div class="row">	
+	<div class="col-12">
+        <div class="card  mb-4 border-0 shadow">
+          <div class="card-body">
+		  	<ul class="hmul">
+				{{range .Entries}}
+					<il class="ilhm hmc-{{.Category}}">{{.Name}} | {{.Price}} | <b>{{.Change}}</b></il>
+				{{end}}	
+			</ul>
+			</div>
+		</div>
+	</div>
+</div>			
+{{end}}
 `
