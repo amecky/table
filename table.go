@@ -2,7 +2,9 @@ package table
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"sort"
 	"strings"
@@ -36,8 +38,14 @@ func BuildFilterDef(txt string) FilterDef {
 		if entries[1] == ">=" {
 			ret.Comparator = 3
 		}
+		if entries[1] == ">" {
+			ret.Comparator = 5
+		}
 		if entries[1] == "<=" {
 			ret.Comparator = 4
+		}
+		if entries[1] == "<" {
+			ret.Comparator = 6
 		}
 	}
 	return ret
@@ -271,6 +279,17 @@ func (tr *Row) AddText(txt string, marker int) *Row {
 	return tr
 }
 
+func (tr *Row) AddAlignedText(txt string, marker, alignment int) *Row {
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      txt,
+			Marker:    marker,
+			Alignment: TextAlign(alignment),
+		})
+	}
+	return tr
+}
+
 func (tr *Row) AddTextRight(txt string, marker int) *Row {
 	if len(tr.Cells) < tr.Size {
 		tr.Cells = append(tr.Cells, Cell{
@@ -308,6 +327,28 @@ func (tr *Row) AddBlock(positive bool) *Row {
 	return tr
 }
 
+func (tr *Row) AddCategoryBlock(c float64) *Row {
+	if len(tr.Cells) < tr.Size {
+		txt := "■"
+		if c == 1.0 || c == 5.0 {
+			txt = "■ ■"
+		}
+		marker := 6
+		if c < 3.0 {
+			marker = 2
+		}
+		if c == 3.0 {
+			marker = 4
+		}
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      txt,
+			Marker:    marker,
+			Alignment: AlignLeft,
+		})
+	}
+	return tr
+}
+
 func (tr *Row) AddChangePercent(v float64) *Row {
 	if len(tr.Cells) < tr.Size {
 		marker := 0
@@ -329,6 +370,44 @@ func (tr *Row) AddChangePercent(v float64) *Row {
 }
 
 func (tr *Row) AddFloat(v float64, marker int) *Row {
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      fmt.Sprintf("%.2f", v),
+			Marker:    marker,
+			Alignment: AlignRight,
+			Value:     v,
+		})
+	}
+	return tr
+}
+
+func (tr *Row) AddMarkedFloat(v float64) *Row {
+	marker := 0
+	if v < 0.0 {
+		marker = -1
+	}
+	if v > 0.0 {
+		marker = 1
+	}
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      fmt.Sprintf("%.2f", v),
+			Marker:    marker,
+			Alignment: AlignRight,
+			Value:     v,
+		})
+	}
+	return tr
+}
+
+func (tr *Row) AddMarkedFloatThreshold(v, t float64) *Row {
+	marker := 0
+	if v < t {
+		marker = -1
+	}
+	if v >= t {
+		marker = 1
+	}
 	if len(tr.Cells) < tr.Size {
 		tr.Cells = append(tr.Cells, Cell{
 			Text:      fmt.Sprintf("%.2f", v),
@@ -425,16 +504,16 @@ const TableTemplate = `
 					{{$clr = "color:#ee4035;"}}
 				{{end}}
 				{{if eq .Marker 3 }}
-					{{$clr = "color:#f2ce02;"}}
+					{{$clr = "color:#f37736;"}}
 				{{end}}
 				{{if eq .Marker 4 }}
 					{{$clr = "color:#0392cf;"}}
 				{{end}}
 				{{if eq .Marker 5 }}
-					{{$clr = "color:#85e62c;"}}
+					{{$clr = "color:#fdf498;"}}
 				{{end}}
 				{{if eq .Marker 6 }}
-					{{$clr = "color:#209c05;"}}
+					{{$clr = "color:#7bc043;"}}
 				{{end}}
 
 				{{$al := ""}}				
@@ -452,7 +531,7 @@ const TableTemplate = `
 					{{if eq .Marker 0 }}
                 		<td {{$cls}} style='{{$al}}'>{{.Text}}</td>
 					{{else}}
-						<td {{$cls}} style='{{$al}};{{$clr}}'><b>{{.Text}}</b></td>
+						<td {{$cls}} style='{{$al}};{{$clr}}'>{{.Text}}</td>
 					{{end}}
 				{{end}}
               {{end}}
@@ -522,6 +601,17 @@ func (rt *Table) RebuildSizes() {
 	}
 }
 
+func (tr *Table) Sub(start, end int) *Table {
+	ret := NewTable(tr.Name, tr.Headers)
+	if end > len(tr.Rows) {
+		end = len(tr.Rows)
+	}
+	for i := start; i < end; i++ {
+		ret.Rows = append(ret.Rows, tr.Rows[i])
+	}
+	return ret
+}
+
 func (tr *Table) Filter(f string) *Table {
 	def := BuildFilterDef(f)
 	ret := NewTable(tr.Name, tr.Headers)
@@ -542,10 +632,28 @@ func (tr *Table) Filter(f string) *Table {
 			if def.Comparator == 4 && n <= def.Value {
 				add = 1
 			}
+			if def.Comparator == 5 && n > def.Value {
+				add = 1
+			}
+			if def.Comparator == 6 && n < def.Value {
+				add = 1
+			}
 			if add == 1 {
 				ret.Rows = append(ret.Rows, r)
 			}
 		}
+	}
+	return ret
+}
+
+func (tr *Table) FilterRecent(num int) *Table {
+	ret := NewTable(tr.Name, tr.Headers)
+	start := len(tr.Rows) - num
+	if start < 0 {
+		start = 0
+	}
+	for i := start; i < len(tr.Rows); i++ {
+		ret.Rows = append(ret.Rows, tr.Rows[i])
 	}
 	return ret
 }
@@ -772,6 +880,36 @@ func (rt *Table) PlainString() string {
 	return cr.String()
 }
 
+type TableCell struct {
+	Value  string `json:"value"`
+	Marker int    `json:"marker"`
+}
+type TableRow struct {
+	Cells []TableCell `json:"row"`
+}
+
+func (rt *Table) JSON(w io.Writer) error {
+	var rows = make([]TableRow, 0)
+	for j, r := range rt.Rows {
+		if rt.Limit == -1 || j < rt.Limit {
+			tr := TableRow{}
+			for _, c := range r.Cells {
+				tr.Cells = append(tr.Cells, TableCell{
+					Value:  c.Text,
+					Marker: c.Marker,
+				})
+			}
+			rows = append(rows, tr)
+		}
+	}
+	reply := map[string]interface{}{
+		"headers": rt.Headers,
+		"rows":    rows,
+	}
+
+	return json.NewEncoder(w).Encode(reply)
+}
+
 const ReportMailTemplate = `
 {{ range .Sections}}
 <h2>{{.Name}}</h2>
@@ -791,9 +929,9 @@ const ReportMailTemplate = `
 			  	<td><a href="{{.Link}}">{{ .Text}}</a></td>
 			  {{else}}
               {{if eq .Marker 1 }}
-                <td class="text-success" style="text-align: right;"><b>{{.Text}}</b></td>
+                <td class="text-success" style="text-align: right;">{{.Text}}</td>
               {{else if eq .Marker -1}}
-                <td class="text-danger" style="text-align: right;"><b>{{ .Text}}</b></td>
+                <td class="text-danger" style="text-align: right;">{{ .Text}}</td>
               {{else}}
                 <td>{{.Text}}</td>
               {{end}}
@@ -835,15 +973,13 @@ const HeatMapTemplate = `
 const InlineHeatMapTemplate = `
 {{ range .Lines}}	
 <div class="row">	
-	<div class="col-12">
-        <div class="card  mb-4 border-0 shadow">
-          <div class="card-body">
+	<div class="col--lg-12">
+		<div class="panel panel-default">
 		  	<ul class="hmul">
 				{{range .Entries}}
 					<il class="ilhm hmc-{{.Category}}">{{.Name}} | {{.Price}} | <b>{{.Change}}</b></il>
 				{{end}}	
 			</ul>
-			</div>
 		</div>
 	</div>
 </div>			
