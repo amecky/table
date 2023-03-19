@@ -253,6 +253,17 @@ func (tr *Row) AddDefaultText(txt string) *Row {
 	return tr
 }
 
+func (tr *Row) AddEmpty() *Row {
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      "",
+			Marker:    0,
+			Alignment: AlignLeft,
+		})
+	}
+	return tr
+}
+
 func (tr *Row) AddDate(txt string) *Row {
 	tmp := txt
 	if strings.Index(tmp, " ") != -1 {
