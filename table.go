@@ -200,6 +200,14 @@ func (rt *Table) CreateRow() *Row {
 	return &rt.Rows[rt.Count-1]
 }
 
+func (rt *Table) DelimiterLine(txt string) *Row {
+	row := rt.CreateRow()
+	for i := 0; i < len(rt.Headers); i++ {
+		row.AddCenteredText(txt, 0)
+	}
+	return row
+}
+
 func FormatString(txt string, length int, align TextAlign) string {
 	var ret string
 	d := length - internalLen(txt)
@@ -338,6 +346,17 @@ func (tr *Row) AddBlock(positive bool) *Row {
 	return tr
 }
 
+func (tr *Row) AddMarkedBlock(marker int) *Row {
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      "■",
+			Marker:    marker,
+			Alignment: AlignCenter,
+		})
+	}
+	return tr
+}
+
 func (tr *Row) AddCategoryBlock(c float64) *Row {
 	if len(tr.Cells) < tr.Size {
 		txt := "■"
@@ -392,6 +411,101 @@ func (tr *Row) AddFloat(v float64, marker int) *Row {
 	return tr
 }
 
+func (tr *Row) AddFlaggedFloat(v float64, flag bool) *Row {
+	marker := 1
+	if !flag {
+		marker = -1
+	}
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      fmt.Sprintf("%.2f", v),
+			Marker:    marker,
+			Alignment: AlignRight,
+			Value:     v,
+		})
+	}
+	return tr
+}
+
+func (tr *Row) AddHisto(p, c float64) *Row {
+	marker := 0
+	if c == 0.0 {
+		marker = 4
+	} else if p < 0.0 && c >= 0.0 {
+		marker = 6
+	} else if p > 0.0 && c <= 0.0 {
+		marker = 2
+	} else if c >= 0.0 {
+		if c > p {
+			marker = 6
+		} else {
+			marker = 5
+		}
+	} else {
+		if p < c {
+			marker = 3
+		}
+		marker = 2
+	}
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      fmt.Sprintf("%.2f", c),
+			Marker:    marker,
+			Alignment: AlignRight,
+			Value:     c,
+		})
+	}
+	return tr
+}
+
+var CAT_DESCRIPTORS = [5]string{"Tiny", "Small", "Medium", "Big", "Huge"}
+
+func (tr *Row) AddCategorizedPercentage(v, steps float64) *Row {
+	s := 0.0
+	marker := 1
+	vp := v * 100.0
+	for i := 0; i < 5; i++ {
+		if vp >= s {
+			marker++
+		}
+		s += steps
+	}
+	text := "-"
+	if marker >= 2 && marker <= 6 {
+		text = CAT_DESCRIPTORS[marker-2]
+	}
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      text,
+			Marker:    marker,
+			Alignment: AlignLeft,
+			Value:     v,
+		})
+	}
+	return tr
+}
+
+func (tr *Row) AddMarkedPercentage(v, steps float64) *Row {
+	s := 0.0
+	marker := 1
+	vp := v * 100.0
+	for i := 0; i < 5; i++ {
+		if vp >= s {
+			marker++
+		}
+		s += steps
+	}
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      fmt.Sprintf("%.2f%%", vp),
+			Marker:    marker,
+			Alignment: AlignRight,
+			Value:     v,
+		})
+	}
+	return tr
+}
+
 func (tr *Row) AddMarkedFloat(v float64) *Row {
 	marker := 0
 	if v < 0.0 {
@@ -406,6 +520,25 @@ func (tr *Row) AddMarkedFloat(v float64) *Row {
 			Marker:    marker,
 			Alignment: AlignRight,
 			Value:     v,
+		})
+	}
+	return tr
+}
+
+func (tr *Row) AddMarkedInt(v int) *Row {
+	marker := 0
+	if v < 0 {
+		marker = -1
+	}
+	if v > 0 {
+		marker = 1
+	}
+	if len(tr.Cells) < tr.Size {
+		tr.Cells = append(tr.Cells, Cell{
+			Text:      fmt.Sprintf("%d", v),
+			Marker:    marker,
+			Alignment: AlignRight,
+			Value:     float64(v),
 		})
 	}
 	return tr
@@ -491,7 +624,7 @@ func (tr *Row) AddRelation(first, second float64) *Row {
 }
 
 const TableTemplate = `
-<table class="table table-dark table-striped-columns">
+<table class="table table-dark table-striped-columns table-bordered">
         <thead>
           <tr>
             {{ range .Headers }}
@@ -658,6 +791,9 @@ func (tr *Table) Filter(f string) *Table {
 }
 
 func (tr *Table) FilterRecent(num int) *Table {
+	if num == -1 {
+		return tr
+	}
 	ret := NewTable(tr.Name, tr.Headers)
 	start := len(tr.Rows) - num
 	if start < 0 {
@@ -676,16 +812,26 @@ func internalLen(txt string) int {
 type StyleFn func(string) string
 
 type Styles struct {
-	Text           StyleFn
-	Header         StyleFn
-	PositiveMarker StyleFn
-	NegativeMarker StyleFn
-	ClassAMarker   StyleFn
-	ClassBMarker   StyleFn
-	ClassCMarker   StyleFn
-	ClassDMarker   StyleFn
-	ClassEMarker   StyleFn
-	ClassFMarker   StyleFn
+	Text                  StyleFn
+	Header                StyleFn
+	PositiveMarker        StyleFn
+	NegativeMarker        StyleFn
+	ClassAMarker          StyleFn
+	ClassBMarker          StyleFn
+	ClassCMarker          StyleFn
+	ClassDMarker          StyleFn
+	ClassEMarker          StyleFn
+	ClassFMarker          StyleFn
+	HeaderStriped         StyleFn
+	TextStriped           StyleFn
+	PositiveMarkerStriped StyleFn
+	NegativeMarkerStriped StyleFn
+	ClassAMarkerStriped   StyleFn
+	ClassBMarkerStriped   StyleFn
+	ClassCMarkerStriped   StyleFn
+	ClassDMarkerStriped   StyleFn
+	ClassEMarkerStriped   StyleFn
+	ClassFMarkerStriped   StyleFn
 }
 
 func NewStyle(fg string, bg string, bold bool) func(string) string {
@@ -702,59 +848,33 @@ type ConsoleRenderer struct {
 	Styles  Styles
 }
 
+const (
+	BG_COLOR = "#131313"
+)
+
 // colors := []string{"#ee4035", "#f37736", "#0392cf", "#fdf498", "#7bc043"}
 func NewConsoleRenderer() *ConsoleRenderer {
 	styles := Styles{
-		Text: NewStyle(
-			"#d0d0d0",
-			"",
-			false,
-		),
-		Header: NewStyle(
-			"#81858d",
-			"",
-			true,
-		),
-		PositiveMarker: NewStyle(
-			"#b2e539",
-			"",
-			true,
-		),
-		NegativeMarker: NewStyle(
-			"#ff7940",
-			"",
-			true,
-		),
-		ClassAMarker: NewStyle(
-			"#ee4035",
-			"",
-			true,
-		),
-		ClassBMarker: NewStyle(
-			"#f37736",
-			"",
-			true,
-		),
-		ClassCMarker: NewStyle(
-			"#0392cf",
-			"",
-			true,
-		),
-		ClassDMarker: NewStyle(
-			"#fdf498",
-			"",
-			true,
-		),
-		ClassEMarker: NewStyle(
-			"#7bc043",
-			"",
-			true,
-		),
-		ClassFMarker: NewStyle(
-			"#7584d9",
-			"",
-			true,
-		),
+		Text:                  NewStyle("#d0d0d0", "", false),
+		Header:                NewStyle("#81858d", "", true),
+		PositiveMarker:        NewStyle("#b2e539", "", true),
+		NegativeMarker:        NewStyle("#ff7940", "", true),
+		ClassAMarker:          NewStyle("#ee4035", "", true),
+		ClassBMarker:          NewStyle("#f37736", "", true),
+		ClassCMarker:          NewStyle("#0392cf", "", true),
+		ClassDMarker:          NewStyle("#fdf498", "", true),
+		ClassEMarker:          NewStyle("#7bc043", "", true),
+		ClassFMarker:          NewStyle("#7584d9", "", true),
+		HeaderStriped:         NewStyle("#81858d", BG_COLOR, true),
+		TextStriped:           NewStyle("#d0d0d0", BG_COLOR, false),
+		PositiveMarkerStriped: NewStyle("#b2e539", BG_COLOR, true),
+		NegativeMarkerStriped: NewStyle("#ff7940", BG_COLOR, true),
+		ClassAMarkerStriped:   NewStyle("#ee4035", BG_COLOR, true),
+		ClassBMarkerStriped:   NewStyle("#f37736", BG_COLOR, true),
+		ClassCMarkerStriped:   NewStyle("#0392cf", BG_COLOR, true),
+		ClassDMarkerStriped:   NewStyle("#fdf498", BG_COLOR, true),
+		ClassEMarkerStriped:   NewStyle("#7bc043", BG_COLOR, true),
+		ClassFMarkerStriped:   NewStyle("#7584d9", BG_COLOR, true),
 	}
 	return &ConsoleRenderer{
 		Styles: styles,
@@ -767,6 +887,84 @@ func (cr *ConsoleRenderer) Append(txt string, style StyleFn) {
 
 func (cr *ConsoleRenderer) String() string {
 	return cr.builder.String()
+}
+
+const (
+	H_LINE    = "┃"
+	V_LINE    = "━"
+	TL_CORNER = "┎"
+	TR_CORNER = "┑"
+	BR_CORNER = "┛"
+	BL_CORNER = "┗"
+	CROSS     = "╋"
+	TOP_DEL   = "┳"
+	BOT_DEL   = "┻"
+	LEFT_DEL  = "┣"
+	RIGHT_DEL = "┫"
+)
+
+func (rt *Table) Width() int {
+	ret := 0
+	for _, th := range rt.Headers {
+		ret += internalLen(th) + 3
+	}
+	for _, r := range rt.Rows {
+		cr := 0
+		for _, c := range r.Cells {
+			cr += internalLen(c.Text) + 3
+		}
+		if cr > ret {
+			ret = cr
+		}
+	}
+	ret += len(rt.Headers) + 4
+	return ret
+}
+
+func (rt *Table) getMarker(mk int, cr *ConsoleRenderer, striped bool) StyleFn {
+	st := cr.Styles.Text
+
+	if striped {
+		st = cr.Styles.TextStriped
+		switch mk {
+		case -1:
+			st = cr.Styles.NegativeMarkerStriped
+		case 1:
+			st = cr.Styles.PositiveMarkerStriped
+		case 2:
+			st = cr.Styles.ClassAMarkerStriped
+		case 3:
+			st = cr.Styles.ClassBMarkerStriped
+		case 4:
+			st = cr.Styles.ClassCMarkerStriped
+		case 5:
+			st = cr.Styles.ClassDMarkerStriped
+		case 6:
+			st = cr.Styles.ClassEMarkerStriped
+		case 7:
+			st = cr.Styles.ClassFMarkerStriped
+		}
+	} else {
+		switch mk {
+		case -1:
+			st = cr.Styles.NegativeMarker
+		case 1:
+			st = cr.Styles.PositiveMarker
+		case 2:
+			st = cr.Styles.ClassAMarker
+		case 3:
+			st = cr.Styles.ClassBMarker
+		case 4:
+			st = cr.Styles.ClassCMarker
+		case 5:
+			st = cr.Styles.ClassDMarker
+		case 6:
+			st = cr.Styles.ClassEMarker
+		case 7:
+			st = cr.Styles.ClassFMarker
+		}
+	}
+	return st
 }
 
 func (rt *Table) String() string {
@@ -785,72 +983,61 @@ func (rt *Table) String() string {
 	cr := NewConsoleRenderer()
 	cr.Append(rt.Name, cr.Styles.Text)
 	cr.Append("\n", cr.Styles.Text)
-	cr.Append("┌", cr.Styles.Header)
+	cr.Append(TL_CORNER, cr.Styles.Header)
 	for j, i := range sizes {
-		cr.Append(strings.Repeat("─", i), cr.Styles.Header)
+		cr.Append(strings.Repeat(V_LINE, i), cr.Styles.Header)
 		if j != len(sizes)-1 {
-			cr.Append("┬", cr.Styles.Header)
+			cr.Append(TOP_DEL, cr.Styles.Header)
 		}
 	}
-	cr.Append("┐\n", cr.Styles.Header)
+	cr.Append(TR_CORNER+"\n", cr.Styles.Header)
 
-	cr.Append("│", cr.Styles.Header)
+	cr.Append(H_LINE, cr.Styles.Header)
 	for j, h := range rt.Headers {
 		cr.Append(FormatString(h, sizes[j], AlignCenter), cr.Styles.Header)
 		if j != len(sizes)-1 {
-			cr.Append("│", cr.Styles.Header)
+			cr.Append(H_LINE, cr.Styles.Header)
 		}
 	}
-	cr.Append("│\n", cr.Styles.Header)
+	cr.Append(H_LINE+"\n", cr.Styles.Header)
 
-	cr.Append("├", cr.Styles.Header)
+	cr.Append(LEFT_DEL, cr.Styles.Header)
 	for j, i := range sizes {
-		cr.Append(strings.Repeat("─", i), cr.Styles.Header)
+		cr.Append(strings.Repeat(V_LINE, i), cr.Styles.Header)
 		if j != len(sizes)-1 {
-			cr.Append("┼", cr.Styles.Header)
+			cr.Append(CROSS, cr.Styles.Header)
 		}
 	}
-	cr.Append("┤\n", cr.Styles.Header)
-
+	cr.Append(RIGHT_DEL+"\n", cr.Styles.Header)
 	for j, r := range rt.Rows {
 		if rt.Limit == -1 || j < rt.Limit {
 			for i, c := range r.Cells {
-				cr.Append("|", cr.Styles.Header)
-
-				st := cr.Styles.Text
-				switch c.Marker {
-				case -1:
-					st = cr.Styles.NegativeMarker
-				case 1:
-					st = cr.Styles.PositiveMarker
-				case 2:
-					st = cr.Styles.ClassAMarker
-				case 3:
-					st = cr.Styles.ClassBMarker
-				case 4:
-					st = cr.Styles.ClassCMarker
-				case 5:
-					st = cr.Styles.ClassDMarker
-				case 6:
-					st = cr.Styles.ClassEMarker
-				case 7:
-					st = cr.Styles.ClassFMarker
+				if j%2 == 0 {
+					cr.Append(H_LINE, cr.Styles.HeaderStriped)
+				} else {
+					cr.Append(H_LINE, cr.Styles.Header)
 				}
+				st := rt.getMarker(c.Marker, cr, j%2 == 0)
 				str := FormatString(c.Text, sizes[i], c.Alignment)
 				cr.Append(fmt.Sprintf("%s", str), st)
 			}
-			cr.Append("|\n", cr.Styles.Header)
+			if j%2 == 0 {
+				cr.Append(H_LINE, cr.Styles.HeaderStriped)
+			} else {
+				cr.Append(H_LINE, cr.Styles.Header)
+			}
+			cr.Append("\n", cr.Styles.Header)
 		}
 	}
 
-	cr.Append("└", cr.Styles.Header)
+	cr.Append(BL_CORNER, cr.Styles.Header)
 	for j, i := range sizes {
-		cr.Append(strings.Repeat("─", i), cr.Styles.Header)
+		cr.Append(strings.Repeat(V_LINE, i), cr.Styles.Header)
 		if j != len(sizes)-1 {
-			cr.Append("┴", cr.Styles.Header)
+			cr.Append(BOT_DEL, cr.Styles.Header)
 		}
 	}
-	cr.Append("┘\n", cr.Styles.Header)
+	cr.Append(BR_CORNER+"\n", cr.Styles.Header)
 	return cr.String()
 }
 
@@ -869,23 +1056,23 @@ func (rt *Table) PlainString() string {
 	var cr strings.Builder
 	cr.WriteString(rt.Name)
 	cr.WriteString("\n")
-	cr.WriteString("│")
+	cr.WriteString("┃")
 	for j, h := range rt.Headers {
 		cr.WriteString(FormatString(h, sizes[j], AlignCenter))
 		if j != len(sizes)-1 {
-			cr.WriteString("│")
+			cr.WriteString("┃")
 		}
 	}
-	cr.WriteString("│\n")
+	cr.WriteString("┃\n")
 
 	for j, r := range rt.Rows {
 		if rt.Limit == -1 || j < rt.Limit {
 			for i, c := range r.Cells {
-				cr.WriteString("|")
+				cr.WriteString("┃")
 				str := FormatString(c.Text, sizes[i], c.Alignment)
 				cr.WriteString(fmt.Sprintf("%s", str))
 			}
-			cr.WriteString("|\n")
+			cr.WriteString("┃\n")
 		}
 	}
 	return cr.String()
