@@ -15,6 +15,17 @@ import (
 	"github.com/muesli/termenv"
 )
 
+const (
+	ARROW_DOWN    = "▼"
+	ARROW_UP      = "▲"
+	DIAMOND       = "◆"
+	SQUARE        = "■"
+	MEDIUM_SQUARE = "◼"
+	CIRCLE        = "●"
+	WHITE_CIRCLE  = "○"
+)
+
+// ◼■
 type FilterFunc func(r *Row) bool
 
 type FilterDef struct {
@@ -78,6 +89,7 @@ type Table struct {
 	Count       int
 	HeaderSizes []int
 	Limit       int
+	Formatters  Formatters
 }
 
 type KeyValueTable struct {
@@ -95,6 +107,44 @@ type Cell struct {
 	Marker    int
 	Alignment TextAlign
 	Link      string
+}
+
+type FormatterFn func(values []float64, index int) (string, int, int)
+
+type Formatters struct {
+	Float       FormatterFn
+	MarkedFloat FormatterFn
+	Histo       FormatterFn
+	Block       FormatterFn
+	Percentage  FormatterFn
+	Relation    FormatterFn
+	Categorized FormatterFn
+}
+
+type MarkedText struct {
+	Text   string
+	Marker int
+}
+
+type MarkedTextList struct {
+	Items []MarkedText
+}
+
+func NewMarkedTextList() *MarkedTextList {
+	ret := &MarkedTextList{}
+	ret.Items = make([]MarkedText, 0)
+	return ret
+}
+
+func (m *MarkedTextList) AddEmpty() {
+	m.Items = append(m.Items, MarkedText{})
+}
+
+func (m *MarkedTextList) Add(txt string, marker int) {
+	m.Items = append(m.Items, MarkedText{
+		Text:   txt,
+		Marker: marker,
+	})
 }
 
 func NewKeyValueTable(name string) *KeyValueTable {
@@ -133,6 +183,100 @@ func NewTable(name string, headers []string) *Table {
 		Count:   0,
 		Limit:   -1,
 		Created: time.Now().Format("2006-01-02 15:04"),
+	}
+	tbl.Formatters = Formatters{
+		Percentage: func(values []float64, index int) (string, int, int) {
+			marker := 4
+			vc := math.Round(values[index]*100) / 100
+			if vc < 0.0 {
+				marker = 2
+			}
+			if vc > 0.0 {
+				marker = 6
+			}
+			return fmt.Sprintf("%.2f%%", vc), marker, 1
+		},
+		Relation: func(values []float64, index int) (string, int, int) {
+			marker := 4
+			vc := math.Round(values[index]*100) / 100
+			if vc < 1.0 {
+				marker = 2
+			}
+			if vc > 1.0 {
+				marker = 6
+			}
+			return fmt.Sprintf("%.2f", vc), marker, 1
+		},
+		Categorized: func(values []float64, index int) (string, int, int) {
+			v := values[index]
+			marker := 4
+			//vc := math.Round(values[index]*100) / 100
+			if v < 20.0 {
+				marker = 2
+			} else if v < 40.0 {
+				marker = 3
+			} else if v < 60.0 {
+				marker = 4
+			} else if v < 80.0 {
+				marker = 5
+			} else {
+				marker = 6
+			}
+			return fmt.Sprintf("%.2f", v), marker, 1
+		},
+		Block: func(values []float64, index int) (string, int, int) {
+			marker := 4
+			if values[index] < 0.0 {
+				marker = 2
+			} else if values[index] > 0.0 {
+				marker = 6
+			}
+			return "■", marker, 2
+		},
+		Float: func(values []float64, index int) (string, int, int) {
+			v := values[index]
+			return fmt.Sprintf("%.2f", v), 0, 1
+		},
+		MarkedFloat: func(values []float64, index int) (string, int, int) {
+			v := values[index]
+			mk := 4
+			if v < 0.0 {
+				mk = 2
+			}
+			if v > 0.0 {
+				mk = 6
+			}
+			return fmt.Sprintf("%.2f", v), mk, 1
+		},
+		Histo: func(values []float64, index int) (string, int, int) {
+			c := values[index]
+			p := 0.0
+			mk := 4
+			if index > 0 {
+				p = values[index-1]
+			}
+			if c > 0.0 && p < 0.0 {
+				mk = 6
+			}
+			if c < 0.0 && p > 0.0 {
+				mk = 2
+			}
+			if c < 0.0 {
+				if p > c {
+					mk = 2
+				} else {
+					mk = 3
+				}
+			} else {
+				if p > c {
+					mk = 5
+				} else {
+					mk = 6
+				}
+			}
+			v := values[index]
+			return fmt.Sprintf("%.2f", v), mk, 1
+		},
 	}
 	for _, header := range headers {
 		tbl.HeaderSizes = append(tbl.HeaderSizes, len(header))
@@ -208,6 +352,76 @@ func (rt *Table) DelimiterLine(txt string) *Row {
 	return row
 }
 
+func (rt *Table) AddColumn(name string, values []float64, fn FormatterFn) {
+	rt.Headers = append(rt.Headers, name)
+	if len(rt.Rows) == 0 {
+		for i := 0; i < len(values); i++ {
+			r := rt.CreateRow()
+			txt, mk, al := fn(values, i)
+			r.AddAlignedText(txt, mk, al)
+		}
+	} else {
+		for i := 0; i < len(rt.Rows); i++ {
+			r := &rt.Rows[i]
+			if i < len(values) {
+				txt, mk, al := fn(values, i)
+				r.AddAlignedText(txt, mk, al)
+			}
+		}
+	}
+}
+
+func (rt *Table) AddIntColumn(name string, values []int) {
+	rt.Headers = append(rt.Headers, name)
+	if len(rt.Rows) == 0 {
+		for i := 0; i < len(values); i++ {
+			r := rt.CreateRow()
+			r.AddAlignedText(fmt.Sprintf("%d", values[i]), 0, int(AlignRight))
+		}
+	} else {
+		for i := 0; i < len(rt.Rows); i++ {
+			r := &rt.Rows[i]
+			if i < len(values) {
+				r.AddAlignedText(fmt.Sprintf("%d", values[i]), 0, int(AlignRight))
+			}
+		}
+	}
+}
+
+func (rt *Table) AddStringColumn(name string, values []string) {
+	rt.Headers = append(rt.Headers, name)
+	if len(rt.Rows) == 0 {
+		for _, s := range values {
+			r := rt.CreateRow()
+			r.AddDefaultText(s)
+		}
+	} else {
+		for i := 0; i < len(rt.Rows); i++ {
+			r := &rt.Rows[i]
+			if i < len(values) {
+				r.AddDefaultText(values[i])
+			}
+		}
+	}
+}
+
+func (rt *Table) AddMarkedTextColumn(name string, values []MarkedText) {
+	rt.Headers = append(rt.Headers, name)
+	if len(rt.Rows) == 0 {
+		for _, s := range values {
+			r := rt.CreateRow()
+			r.AddCenteredText(s.Text, s.Marker)
+		}
+	} else {
+		for i := 0; i < len(rt.Rows); i++ {
+			r := &rt.Rows[i]
+			if i < len(values) {
+				r.AddCenteredText(values[i].Text, values[i].Marker)
+			}
+		}
+	}
+}
+
 func FormatString(txt string, length int, align TextAlign) string {
 	var ret string
 	d := length - internalLen(txt)
@@ -239,36 +453,36 @@ func FormatString(txt string, length int, align TextAlign) string {
 }
 
 func (tr *Row) AddLink(txt, url string) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    0,
-			Alignment: AlignLeft,
-			Link:      url,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    0,
+		Alignment: AlignLeft,
+		Link:      url,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddDefaultText(txt string) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    0,
-			Alignment: AlignLeft,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    0,
+		Alignment: AlignLeft,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddEmpty() *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      "",
-			Marker:    0,
-			Alignment: AlignLeft,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      "",
+		Marker:    0,
+		Alignment: AlignLeft,
+	})
+	//}
 	return tr
 }
 
@@ -277,137 +491,211 @@ func (tr *Row) AddDate(txt string) *Row {
 	if strings.Index(tmp, " ") != -1 {
 		tmp = tmp[0:strings.Index(tmp, " ")]
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      tmp,
-			Marker:    0,
-			Alignment: AlignRight,
-		})
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      tmp,
+		Marker:    0,
+		Alignment: AlignRight,
+	})
+	//}
+	return tr
+}
+
+func (tr *Row) AddTime(txt string) *Row {
+	tmp := txt
+	if strings.Index(tmp, " ") != -1 {
+		tmp = tmp[strings.Index(tmp, " ")+1:]
 	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      tmp,
+		Marker:    0,
+		Alignment: AlignRight,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddText(txt string, marker int) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    marker,
-			Alignment: AlignLeft,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    marker,
+		Alignment: AlignLeft,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddAlignedText(txt string, marker, alignment int) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    marker,
-			Alignment: TextAlign(alignment),
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    marker,
+		Alignment: TextAlign(alignment),
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddTextRight(txt string, marker int) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    marker,
-			Alignment: AlignRight,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    marker,
+		Alignment: AlignRight,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddCenteredText(txt string, marker int) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    marker,
-			Alignment: AlignCenter,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    marker,
+		Alignment: AlignCenter,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddBlock(positive bool) *Row {
-	if len(tr.Cells) < tr.Size {
-		marker := 6
-		if !positive {
-			marker = 2
-		}
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      "■",
-			Marker:    marker,
-			Alignment: AlignCenter,
-		})
+	//if len(tr.Cells) < tr.Size {
+	marker := 6
+	if !positive {
+		marker = 2
 	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      "■",
+		Marker:    marker,
+		Alignment: AlignCenter,
+	})
+	//}
+	return tr
+}
+
+func (tr *Row) AddHistoBlock(prev, cur float64) *Row {
+	txt := "■"
+	marker := 6
+	/*
+		if prev > cur {
+			txt += " ↓"
+		} else if prev < cur {
+			txt += " ↑"
+		} else {
+			txt += " →"
+		}
+	*/
+	if prev > cur {
+		txt = ARROW_DOWN
+		//txt = SQUARE
+	} else if prev < cur {
+		txt = ARROW_UP
+		//txt = CIRCLE
+	} else {
+		txt = DIAMOND
+	}
+	if cur < 0.0 {
+		marker = 2
+		if prev < cur {
+			marker = 3
+		}
+	} else if cur > 0.0 {
+		marker = 6
+		if prev > cur {
+			marker = 5
+		}
+	} else {
+		marker = 4
+	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    marker,
+		Alignment: AlignCenter,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddMarkedBlock(marker int) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      "■",
-			Marker:    marker,
-			Alignment: AlignCenter,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      "■",
+		Marker:    marker,
+		Alignment: AlignCenter,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddCategoryBlock(c float64) *Row {
-	if len(tr.Cells) < tr.Size {
-		txt := "■"
-		if c == 1.0 || c == 5.0 {
-			txt = "■ ■"
-		}
-		marker := 6
-		if c < 3.0 {
-			marker = 2
-		}
-		if c == 3.0 {
-			marker = 4
-		}
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    marker,
-			Alignment: AlignLeft,
-		})
+	//if len(tr.Cells) < tr.Size {
+	txt := "■"
+	if c == 1.0 || c == 5.0 {
+		txt = "■ ■"
 	}
+	marker := 6
+	if c < 3.0 {
+		marker = 2
+	}
+	if c == 3.0 {
+		marker = 4
+	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    marker,
+		Alignment: AlignLeft,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddChangePercent(v float64) *Row {
-	if len(tr.Cells) < tr.Size {
-		marker := 0
-		vc := math.Round(v*100) / 100
-		if vc < 0.0 {
-			marker = -1
-		}
-		if vc > 0.0 {
-			marker = 1
-		}
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f%%", vc),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     vc,
-		})
+	//if len(tr.Cells) < tr.Size {
+	marker := 0
+	vc := math.Round(v*100) / 100
+	if vc < 0.0 {
+		marker = -1
 	}
+	if vc > 0.0 {
+		marker = 1
+	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%.2f%%", vc),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     vc,
+	})
+	//}
 	return tr
 }
 
-func (tr *Row) AddFloat(v float64, marker int) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f", v),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     v,
-		})
+func (tr *Row) AddCategorizedFloat(v, l1, l2, l3 float64) *Row {
+	mk := 4
+	if v <= l1 {
+		mk = 2
+	} else if v <= l2 {
+		mk = 3
+	} else if v <= l3 {
+		mk = 5
+	} else if v > l3 {
+		mk = 6
 	}
+	return tr.AddFloat(v, mk)
+
+}
+
+func (tr *Row) AddFloat(v float64, marker int) *Row {
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%.2f", v),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
+	//}
 	return tr
 }
 
@@ -416,26 +704,29 @@ func (tr *Row) AddFlaggedFloat(v float64, flag bool) *Row {
 	if !flag {
 		marker = -1
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f", v),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     v,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%.2f", v),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
+	//}
 	return tr
 }
 
 func (tr *Row) AddHisto(p, c float64) *Row {
 	marker := 0
-	if c == 0.0 {
+	dv := 0.01
+	rc := math.Round(c/dv) * dv
+	if rc == 0.0 {
+		c = 0.0
 		marker = 4
-	} else if p < 0.0 && c >= 0.0 {
+	} else if p < 0.0 && rc > 0.0 {
 		marker = 6
-	} else if p > 0.0 && c <= 0.0 {
+	} else if p > 0.0 && rc < 0.0 {
 		marker = 2
-	} else if c >= 0.0 {
+	} else if rc > 0.0 {
 		if c > p {
 			marker = 6
 		} else {
@@ -444,17 +735,18 @@ func (tr *Row) AddHisto(p, c float64) *Row {
 	} else {
 		if p < c {
 			marker = 3
+		} else {
+			marker = 2
 		}
-		marker = 2
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f", c),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     c,
-		})
-	}
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%.2f", c),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     c,
+	})
+	//}
 	return tr
 }
 
@@ -507,16 +799,19 @@ func (tr *Row) AddMarkedPercentage(v, steps float64) *Row {
 }
 
 func (tr *Row) AddMarkedFloat(v float64) *Row {
+	dv := 0.01
+	rp := math.Round(v/dv) * dv
 	marker := 0
-	if v < 0.0 {
+	if rp < 0.0 {
 		marker = -1
-	}
-	if v > 0.0 {
+	} else if rp > 0.0 {
 		marker = 1
+	} else {
+		rp = 0.0
 	}
 	if len(tr.Cells) < tr.Size {
 		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f", v),
+			Text:      fmt.Sprintf("%.2f", rp),
 			Marker:    marker,
 			Alignment: AlignRight,
 			Value:     v,
@@ -636,28 +931,27 @@ const TableTemplate = `
           {{ range .Rows }}
             <tr>
               {{range .Cells}}
-			  	{{ $cls := ""}}
-              	{{if eq .Marker 1 }}
-			  		{{$cls = "class='text-success'"}}
-				{{else if eq .Marker -1}}	  
-					{{$cls = "class='text-danger'"}}
-				{{end}}
-
 				{{ $clr := ""}}
+				{{if eq .Marker -1 }}
+					{{$clr = "color:#ff2727;"}}
+				{{end}}
 				{{if eq .Marker 2 }}
-					{{$clr = "color:#ee4035;"}}
+					{{$clr = "color:#ff2727;"}}
 				{{end}}
 				{{if eq .Marker 3 }}
-					{{$clr = "color:#f37736;"}}
+					{{$clr = "color:#c0a102;"}}
 				{{end}}
 				{{if eq .Marker 4 }}
-					{{$clr = "color:#0392cf;"}}
+					{{$clr = "color:#1a7091;"}}
 				{{end}}
 				{{if eq .Marker 5 }}
-					{{$clr = "color:#fdf498;"}}
+					{{$clr = "color:#166a03;"}}
 				{{end}}
 				{{if eq .Marker 6 }}
-					{{$clr = "color:#7bc043;"}}
+					{{$clr = "color:#6cc717;"}}
+				{{end}}
+				{{if eq .Marker 1 }}
+					{{$clr = "color:#6cc717;"}}
 				{{end}}
 
 				{{$al := ""}}				
@@ -670,12 +964,66 @@ const TableTemplate = `
 				{{end}}
 
 				{{if gt .Link ""}}
-					<td {{$cls}} {{$al}}><a href="{{.Link}}">{{.Text}}</a></td>
+					<td {{$al}}><a href="{{.Link}}">{{.Text}}</a></td>
 				{{else}}
 					{{if eq .Marker 0 }}
-                		<td {{$cls}} style='{{$al}}'>{{.Text}}</td>
+                		<td style='{{$al}}'>{{.Text}}</td>
 					{{else}}
-						<td {{$cls}} style='{{$al}};{{$clr}}'>{{.Text}}</td>
+						<td style='{{$al}};{{$clr}}'>{{.Text}}</td>
+					{{end}}
+				{{end}}
+              {{end}}
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+`
+
+const HeadlessTableTemplate = `
+<table class="table table-dark table-striped-columns table-bordered">
+        <tbody>
+          {{ range .Rows }}
+            <tr>
+              {{range .Cells}}
+				{{ $clr := ""}}
+				{{if eq .Marker -1 }}
+					{{$clr = "color:#ff2727;"}}
+				{{end}}
+				{{if eq .Marker 2 }}
+					{{$clr = "color:#ff2727;"}}
+				{{end}}
+				{{if eq .Marker 3 }}
+					{{$clr = "color:#c0a102;"}}
+				{{end}}
+				{{if eq .Marker 4 }}
+					{{$clr = "color:#1a7091;"}}
+				{{end}}
+				{{if eq .Marker 5 }}
+					{{$clr = "color:#166a03;"}}
+				{{end}}
+				{{if eq .Marker 6 }}
+					{{$clr = "color:#6cc717;"}}
+				{{end}}
+				{{if eq .Marker 1 }}
+					{{$clr = "color:#6cc717;"}}
+				{{end}}
+
+				{{$al := ""}}				
+				{{if eq .Alignment 0}}
+					{{$al = "text-align: left"}}
+				{{else if eq .Alignment 1}}
+					{{$al = "text-align: right"}}
+				{{else if eq .Alignment 2}}
+					{{$al = "text-align: center"}}
+				{{end}}
+
+				{{if gt .Link ""}}
+					<td {{$al}}><a href="{{.Link}}">{{.Text}}</a></td>
+				{{else}}
+					{{if eq .Marker 0 }}
+                		<td style='{{$al}}'>{{.Text}}</td>
+					{{else}}
+						<td style='{{$al}};{{$clr}}'>{{.Text}}</td>
 					{{end}}
 				{{end}}
               {{end}}
@@ -704,7 +1052,7 @@ func (rt *Table) BuildHtml() string {
 }
 
 func (rt *Table) BuildHeadlessHtml() string {
-	reportTemplate, err := template.New("report").Parse(TableTemplate)
+	reportTemplate, err := template.New("report").Parse(HeadlessTableTemplate)
 	if err != nil {
 		fmt.Println(err)
 		return ""
@@ -849,32 +1197,63 @@ type ConsoleRenderer struct {
 }
 
 const (
-	BG_COLOR = "#131313"
+	BG_COLOR    = "#131313"
+	RED         = "#be0000"
+	ORANGE      = "#c0a102"
+	BLUE        = "#1a7091"
+	GREEN       = "#6cc717"
+	LIGHT_GREEN = "#166a03"
+	//TEXT_COLOR  = "#efefef"
+	TEXT_COLOR   = "#fff"
+	HEADER_COLOR = "#81858d"
 )
 
-// colors := []string{"#ee4035", "#f37736", "#0392cf", "#fdf498", "#7bc043"}
 func NewConsoleRenderer() *ConsoleRenderer {
+	/*
+		styles := Styles{
+			Text:                  NewStyle("#d0d0d0", "", false),
+			Header:                NewStyle(HEADER_COLOR, "", true),
+			PositiveMarker:        NewStyle(TEXT_COLOR, GREEN, true),
+			NegativeMarker:        NewStyle(TEXT_COLOR, RED, true),
+			ClassAMarker:          NewStyle(TEXT_COLOR, RED, true),
+			ClassBMarker:          NewStyle(TEXT_COLOR, ORANGE, true),
+			ClassCMarker:          NewStyle(TEXT_COLOR, BLUE, true),
+			ClassDMarker:          NewStyle(TEXT_COLOR, LIGHT_GREEN, true),
+			ClassEMarker:          NewStyle(TEXT_COLOR, GREEN, true),
+			ClassFMarker:          NewStyle(TEXT_COLOR, "#209c05", true),
+			HeaderStriped:         NewStyle(HEADER_COLOR, BG_COLOR, true),
+			TextStriped:           NewStyle("#81858d", BG_COLOR, false),
+			PositiveMarkerStriped: NewStyle(TEXT_COLOR, GREEN, true),
+			NegativeMarkerStriped: NewStyle(TEXT_COLOR, RED, true),
+			ClassAMarkerStriped:   NewStyle(TEXT_COLOR, RED, true),
+			ClassBMarkerStriped:   NewStyle(TEXT_COLOR, ORANGE, true),
+			ClassCMarkerStriped:   NewStyle(TEXT_COLOR, BLUE, true),
+			ClassDMarkerStriped:   NewStyle(TEXT_COLOR, LIGHT_GREEN, true),
+			ClassEMarkerStriped:   NewStyle(TEXT_COLOR, GREEN, true),
+			ClassFMarkerStriped:   NewStyle(TEXT_COLOR, "#209c05", true),
+		}
+	*/
 	styles := Styles{
 		Text:                  NewStyle("#d0d0d0", "", false),
-		Header:                NewStyle("#81858d", "", true),
-		PositiveMarker:        NewStyle("#b2e539", "", true),
-		NegativeMarker:        NewStyle("#ff7940", "", true),
-		ClassAMarker:          NewStyle("#ee4035", "", true),
-		ClassBMarker:          NewStyle("#f37736", "", true),
-		ClassCMarker:          NewStyle("#0392cf", "", true),
-		ClassDMarker:          NewStyle("#fdf498", "", true),
-		ClassEMarker:          NewStyle("#7bc043", "", true),
-		ClassFMarker:          NewStyle("#7584d9", "", true),
-		HeaderStriped:         NewStyle("#81858d", BG_COLOR, true),
-		TextStriped:           NewStyle("#d0d0d0", BG_COLOR, false),
-		PositiveMarkerStriped: NewStyle("#b2e539", BG_COLOR, true),
-		NegativeMarkerStriped: NewStyle("#ff7940", BG_COLOR, true),
-		ClassAMarkerStriped:   NewStyle("#ee4035", BG_COLOR, true),
-		ClassBMarkerStriped:   NewStyle("#f37736", BG_COLOR, true),
-		ClassCMarkerStriped:   NewStyle("#0392cf", BG_COLOR, true),
-		ClassDMarkerStriped:   NewStyle("#fdf498", BG_COLOR, true),
-		ClassEMarkerStriped:   NewStyle("#7bc043", BG_COLOR, true),
-		ClassFMarkerStriped:   NewStyle("#7584d9", BG_COLOR, true),
+		Header:                NewStyle(HEADER_COLOR, "", true),
+		PositiveMarker:        NewStyle(GREEN, "", true),
+		NegativeMarker:        NewStyle(RED, "", true),
+		ClassAMarker:          NewStyle(RED, "", true),
+		ClassBMarker:          NewStyle(ORANGE, "", true),
+		ClassCMarker:          NewStyle(BLUE, "", true),
+		ClassDMarker:          NewStyle(LIGHT_GREEN, "", true),
+		ClassEMarker:          NewStyle(GREEN, "", true),
+		ClassFMarker:          NewStyle("#209c05", "", true),
+		HeaderStriped:         NewStyle(HEADER_COLOR, BG_COLOR, true),
+		TextStriped:           NewStyle("#81858d", BG_COLOR, false),
+		PositiveMarkerStriped: NewStyle(GREEN, BG_COLOR, true),
+		NegativeMarkerStriped: NewStyle(RED, BG_COLOR, true),
+		ClassAMarkerStriped:   NewStyle(RED, BG_COLOR, true),
+		ClassBMarkerStriped:   NewStyle(ORANGE, BG_COLOR, true),
+		ClassCMarkerStriped:   NewStyle(BLUE, BG_COLOR, true),
+		ClassDMarkerStriped:   NewStyle(LIGHT_GREEN, BG_COLOR, true),
+		ClassEMarkerStriped:   NewStyle(GREEN, BG_COLOR, true),
+		ClassFMarkerStriped:   NewStyle("#209c05", BG_COLOR, true),
 	}
 	return &ConsoleRenderer{
 		Styles: styles,
@@ -889,18 +1268,28 @@ func (cr *ConsoleRenderer) String() string {
 	return cr.builder.String()
 }
 
+func (cr *ConsoleRenderer) BorderLine(left, right string, sizes []int) {
+	cr.Append(left, cr.Styles.Header)
+	for _, i := range sizes {
+		cr.Append(strings.Repeat(V_LINE, i+1), cr.Styles.Header)
+	}
+	cr.Append(right, cr.Styles.Header)
+	cr.Append("\n", cr.Styles.Header)
+}
+
+// https://en.wikipedia.org/wiki/Box-drawing_character
 const (
-	H_LINE    = "┃"
-	V_LINE    = "━"
-	TL_CORNER = "┎"
-	TR_CORNER = "┑"
-	BR_CORNER = "┛"
-	BL_CORNER = "┗"
-	CROSS     = "╋"
-	TOP_DEL   = "┳"
-	BOT_DEL   = "┻"
-	LEFT_DEL  = "┣"
-	RIGHT_DEL = "┫"
+	H_LINE    = "│"
+	V_LINE    = "─"
+	TL_CORNER = "┌"
+	TR_CORNER = "┐"
+	BR_CORNER = "┘"
+	BL_CORNER = "└"
+	CROSS     = "┼"
+	TOP_DEL   = "┬"
+	BOT_DEL   = "┴"
+	LEFT_DEL  = "├"
+	RIGHT_DEL = "┤"
 )
 
 func (rt *Table) Width() int {
@@ -967,7 +1356,155 @@ func (rt *Table) getMarker(mk int, cr *ConsoleRenderer, striped bool) StyleFn {
 	return st
 }
 
+/*
+	func (rt *Table) String() string {
+		var sizes = make([]int, 0)
+		for _, th := range rt.Headers {
+			sizes = append(sizes, internalLen(th)+2)
+		}
+		for _, r := range rt.Rows {
+			for j, c := range r.Cells {
+				if internalLen(c.Text)+2 > sizes[j] {
+					sizes[j] = internalLen(c.Text) + 2
+				}
+			}
+		}
+
+		cr := NewConsoleRenderer()
+		cr.Append(rt.Name, cr.Styles.Text)
+		cr.Append("\n", cr.Styles.Text)
+
+		cr.BorderLine(TL_CORNER, TR_CORNER, sizes)
+
+		cr.Append(H_LINE, cr.Styles.Header)
+		for j, h := range rt.Headers {
+			cr.Append(FormatString(h, sizes[j], AlignCenter), cr.Styles.Header)
+			cr.Append(" ", cr.Styles.Header)
+		}
+		cr.Append(H_LINE+"\n", cr.Styles.Header)
+
+		cr.BorderLine(LEFT_DEL, RIGHT_DEL, sizes)
+
+		for j, r := range rt.Rows {
+			if j%2 == 0 {
+				cr.Append(H_LINE, cr.Styles.HeaderStriped)
+			} else {
+				cr.Append(H_LINE, cr.Styles.Header)
+			}
+			if rt.Limit == -1 || j < rt.Limit {
+				for i, c := range r.Cells {
+					if j%2 == 0 {
+						cr.Append(" ", cr.Styles.HeaderStriped)
+					} else {
+						cr.Append(" ", cr.Styles.Header)
+					}
+					st := rt.getMarker(c.Marker, cr, j%2 == 0)
+					str := FormatString(c.Text, sizes[i], c.Alignment)
+					cr.Append(str, st)
+				}
+				if j%2 == 0 {
+					cr.Append(H_LINE, cr.Styles.HeaderStriped)
+				} else {
+					cr.Append(H_LINE, cr.Styles.Header)
+				}
+				cr.Append("\n", cr.Styles.Header)
+			}
+		}
+		cr.BorderLine(BL_CORNER, BR_CORNER, sizes)
+		return cr.String()
+	}
+*/
 func (rt *Table) String() string {
+	var sizes = make([]int, 0)
+	for _, th := range rt.Headers {
+		sizes = append(sizes, internalLen(th)+2)
+	}
+	total := 0
+	for _, r := range rt.Rows {
+		for j, c := range r.Cells {
+			if internalLen(c.Text)+2 > sizes[j] {
+				sizes[j] = internalLen(c.Text) + 2
+			}
+		}
+	}
+	for _, s := range sizes {
+		total += s + 1
+	}
+	cr := NewConsoleRenderer()
+	cr.Append(rt.Name, cr.Styles.Text)
+	cr.Append("\n", cr.Styles.Text)
+	for j, h := range rt.Headers {
+		cr.Append(FormatString(h, sizes[j], AlignCenter), cr.Styles.Header)
+		cr.Append(" ", cr.Styles.Header)
+	}
+	cr.Append("\n", cr.Styles.Header)
+
+	cr.Append(strings.Repeat(V_LINE, total), cr.Styles.Header)
+	cr.Append("\n", cr.Styles.Header)
+	for j, r := range rt.Rows {
+		if rt.Limit == -1 || j < rt.Limit {
+			for i, c := range r.Cells {
+				if j%2 == 0 {
+					cr.Append(" ", cr.Styles.HeaderStriped)
+				} else {
+					cr.Append(" ", cr.Styles.Header)
+				}
+				st := rt.getMarker(c.Marker, cr, j%2 == 0)
+				str := FormatString(c.Text, sizes[i], c.Alignment)
+				cr.Append(str, st)
+			}
+			cr.Append("\n", cr.Styles.Header)
+		}
+	}
+	return cr.String()
+}
+
+func (rt *Table) BorderlessString() string {
+	var sizes = make([]int, 0)
+	for _, th := range rt.Headers {
+		sizes = append(sizes, internalLen(th)+2)
+	}
+	total := 0
+	for _, r := range rt.Rows {
+		for j, c := range r.Cells {
+			if internalLen(c.Text)+2 > sizes[j] {
+				sizes[j] = internalLen(c.Text) + 2
+			}
+		}
+	}
+	for _, s := range sizes {
+		total += s
+	}
+	cr := NewConsoleRenderer()
+	cr.Append(rt.Name, cr.Styles.Text)
+	cr.Append("\n", cr.Styles.Text)
+	for j, h := range rt.Headers {
+		cr.Append(FormatString(h, sizes[j], AlignCenter), cr.Styles.Header)
+		cr.Append(" ", cr.Styles.Header)
+	}
+	cr.Append("\n", cr.Styles.Header)
+
+	cr.Append(strings.Repeat(V_LINE, total+1), cr.Styles.Header)
+	cr.Append("\n", cr.Styles.Header)
+	for j, r := range rt.Rows {
+		if rt.Limit == -1 || j < rt.Limit {
+			for i, c := range r.Cells {
+				if j%2 == 0 {
+					cr.Append(" ", cr.Styles.HeaderStriped)
+				} else {
+					cr.Append(" ", cr.Styles.Header)
+				}
+				st := rt.getMarker(c.Marker, cr, j%2 == 0)
+				str := FormatString(c.Text, sizes[i], c.Alignment)
+				cr.Append(str, st)
+			}
+			cr.Append("\n", cr.Styles.Header)
+		}
+	}
+	return cr.String()
+}
+
+func (rt *Table) HeadlessString() string {
 	var sizes = make([]int, 0)
 	for _, th := range rt.Headers {
 		sizes = append(sizes, internalLen(th)+2)
@@ -979,65 +1516,25 @@ func (rt *Table) String() string {
 			}
 		}
 	}
-
 	cr := NewConsoleRenderer()
-	cr.Append(rt.Name, cr.Styles.Text)
-	cr.Append("\n", cr.Styles.Text)
-	cr.Append(TL_CORNER, cr.Styles.Header)
-	for j, i := range sizes {
-		cr.Append(strings.Repeat(V_LINE, i), cr.Styles.Header)
-		if j != len(sizes)-1 {
-			cr.Append(TOP_DEL, cr.Styles.Header)
-		}
-	}
-	cr.Append(TR_CORNER+"\n", cr.Styles.Header)
-
-	cr.Append(H_LINE, cr.Styles.Header)
-	for j, h := range rt.Headers {
-		cr.Append(FormatString(h, sizes[j], AlignCenter), cr.Styles.Header)
-		if j != len(sizes)-1 {
-			cr.Append(H_LINE, cr.Styles.Header)
-		}
-	}
-	cr.Append(H_LINE+"\n", cr.Styles.Header)
-
-	cr.Append(LEFT_DEL, cr.Styles.Header)
-	for j, i := range sizes {
-		cr.Append(strings.Repeat(V_LINE, i), cr.Styles.Header)
-		if j != len(sizes)-1 {
-			cr.Append(CROSS, cr.Styles.Header)
-		}
-	}
-	cr.Append(RIGHT_DEL+"\n", cr.Styles.Header)
+	// Name
+	cr.Append(rt.Name, cr.Styles.Header)
+	cr.Append("\n", cr.Styles.Header)
+	cr.BorderLine(TL_CORNER, TR_CORNER, sizes)
+	// table
 	for j, r := range rt.Rows {
+		cr.Append(H_LINE, cr.Styles.Header)
 		if rt.Limit == -1 || j < rt.Limit {
 			for i, c := range r.Cells {
-				if j%2 == 0 {
-					cr.Append(H_LINE, cr.Styles.HeaderStriped)
-				} else {
-					cr.Append(H_LINE, cr.Styles.Header)
-				}
 				st := rt.getMarker(c.Marker, cr, j%2 == 0)
 				str := FormatString(c.Text, sizes[i], c.Alignment)
-				cr.Append(fmt.Sprintf("%s", str), st)
+				cr.Append(str, st)
+				cr.Append(" ", cr.Styles.Text)
 			}
-			if j%2 == 0 {
-				cr.Append(H_LINE, cr.Styles.HeaderStriped)
-			} else {
-				cr.Append(H_LINE, cr.Styles.Header)
-			}
-			cr.Append("\n", cr.Styles.Header)
 		}
+		cr.Append(H_LINE+"\n", cr.Styles.Header)
 	}
-
-	cr.Append(BL_CORNER, cr.Styles.Header)
-	for j, i := range sizes {
-		cr.Append(strings.Repeat(V_LINE, i), cr.Styles.Header)
-		if j != len(sizes)-1 {
-			cr.Append(BOT_DEL, cr.Styles.Header)
-		}
-	}
-	cr.Append(BR_CORNER+"\n", cr.Styles.Header)
+	cr.BorderLine(BL_CORNER, BR_CORNER, sizes)
 	return cr.String()
 }
 
