@@ -699,6 +699,18 @@ func (tr *Row) AddFloat(v float64, marker int) *Row {
 	return tr
 }
 
+func (tr *Row) AddExtendedFloat(v float64, pattern string, marker int) *Row {
+	//if len(tr.Cells) < tr.Size {
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf(pattern, v),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
+	//}
+	return tr
+}
+
 func (tr *Row) AddFlaggedFloat(v float64, flag bool) *Row {
 	marker := 1
 	if !flag {

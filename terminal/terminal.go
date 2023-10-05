@@ -52,6 +52,29 @@ const (
 	BG_COLOR = "#131313"
 )
 
+const (
+	ST_TEXT = iota
+	ST_HEADER
+	ST_TWO
+	ST_THREE
+	ST_MARKER_RED
+	ST_MARKER_ORANGE
+	ST_MARKER_BLUE
+	ST_MARKER_LIGHT_GREEN
+	ST_MARKER_GREEN
+	ST_MARKER_BG_RED
+	ST_MARKER_BG_ORANGE
+	ST_MARKER_BG_BLUE
+	ST_MARKER_BG_LIGHT_GREEN
+	ST_MARKER_BG_GREEN
+	ST_HEADER_BG
+	ST_INFO
+	ST_HEADER_2
+	ST_DARK
+	ST_ALERT
+	ST_INFO_MESSAGE
+)
+
 func NewTerminalMatrix(width, height int) *TerminalMatrix {
 	ret := TerminalMatrix{
 		Height: height,
@@ -88,10 +111,17 @@ func NewTerminalMatrix(width, height int) *TerminalMatrix {
 
 	ret.Styles = append(ret.Styles, NewStyle("#7584d9", "", true))
 	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", "#0C0C0C", true))
-	ret.Styles = append(ret.Styles, NewStyle("#141414", "", false))
 	ret.Styles = append(ret.Styles, NewStyle("#81858d", BG_COLOR, true))
+
+	ret.Styles = append(ret.Styles, NewStyle("#efefef", "#ee4035", true))
+	ret.Styles = append(ret.Styles, NewStyle("#efefef", "#7584d9", true))
 	return &ret
 
+}
+
+func (t *TerminalMatrix) AddStyle(fg, bg string, bold bool) int {
+	t.Styles = append(t.Styles, NewStyle(fg, bg, bold))
+	return len(t.Styles) - 1
 }
 
 func TT(txt string, style int) TerminalText {
@@ -171,10 +201,11 @@ func (tm *TerminalMatrix) WriteText(x, y int, TT ...TerminalText) int {
 }
 
 func (tm *TerminalMatrix) Clear() {
-	for _, l := range tm.Lines {
-		for _, r := range l.Cells {
-			r.Char = 0
-			r.Style = 0
+	for y := 0; y < tm.Height; y++ {
+		r := &tm.Lines[y]
+		for x := 0; x < tm.Width; x++ {
+			r.Cells[x].Char = 0
+			r.Cells[x].Style = 0
 		}
 	}
 }
@@ -192,6 +223,23 @@ func (tm *TerminalMatrix) ClearBox(x, y, w, h int) {
 			r := &l.Cells[j]
 			r.Char = 0
 			r.Style = 0
+		}
+	}
+}
+
+func (tm *TerminalMatrix) FillBox(x, y, w, h, style int) {
+	if x+w > tm.Width {
+		w = tm.Width - x
+	}
+	if y+h > tm.Height {
+		h = tm.Height - y
+	}
+	for i := y; i < y+h; i++ {
+		l := tm.Lines[i]
+		for j := x; j < x+w; j++ {
+			r := &l.Cells[j]
+			r.Char = ' '
+			r.Style = style
 		}
 	}
 }
