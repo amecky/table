@@ -49,7 +49,7 @@ func NewStyle(fg string, bg string, bold bool) func(string) string {
 }
 
 const (
-	BG_COLOR = "#131313"
+	BG_COLOR = "#181818"
 )
 
 const (
@@ -69,6 +69,7 @@ const (
 	ST_MARKER_BG_GREEN
 	ST_HEADER_BG
 	ST_INFO
+	ST_INFO_BG
 	ST_HEADER_2
 	ST_DARK
 	ST_ALERT
@@ -89,27 +90,30 @@ func NewTerminalMatrix(width, height int) *TerminalMatrix {
 		line.Cells = make([]TerminalCell, width)
 		ret.Lines = append(ret.Lines, line)
 	}
-	// 0
+	// ST_TEXT
 	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", "", false))
+	// ST_HEADER
 	ret.Styles = append(ret.Styles, NewStyle("#81858d", "", true))
 	ret.Styles = append(ret.Styles, NewStyle("#b2e539", "", true))
 	ret.Styles = append(ret.Styles, NewStyle("#ff7940", "", true))
-	// 4 -8 markers
+	// ST_MARKER_RED
 	ret.Styles = append(ret.Styles, NewStyle("#ee4035", "", true))
 	ret.Styles = append(ret.Styles, NewStyle("#f37736", "", true))
 	ret.Styles = append(ret.Styles, NewStyle("#0392cf", "", true))
 	ret.Styles = append(ret.Styles, NewStyle("#fdf498", "", true))
 	ret.Styles = append(ret.Styles, NewStyle("#7bc043", "", true))
-	// 9-13 markers with bg
+	// ST_MARKER_BG_RED
 	ret.Styles = append(ret.Styles, NewStyle("#ee4035", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#f37736", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#0392cf", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#fdf498", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#7bc043", BG_COLOR, true))
-	// 14 header striped
-	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", BG_COLOR, false))
-
+	// ST_HEADER_BG
+	ret.Styles = append(ret.Styles, NewStyle("#81858d", BG_COLOR, false))
+	// ST_INFO
 	ret.Styles = append(ret.Styles, NewStyle("#7584d9", "", true))
+	// ST_INFO_BG
+	ret.Styles = append(ret.Styles, NewStyle("#7584d9", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", "#0C0C0C", true))
 	ret.Styles = append(ret.Styles, NewStyle("#81858d", BG_COLOR, true))
 
@@ -405,11 +409,11 @@ func (tm *TerminalMatrix) GetMarker(mk int, striped bool) int {
 		st = 14
 		switch mk {
 		case -1:
-			st = 9
+			st = ST_MARKER_BG_RED
 		case 1:
-			st = 13
+			st = ST_MARKER_BG_GREEN
 		case 2:
-			st = 9
+			st = ST_MARKER_BG_RED
 		case 3:
 			st = 10
 		case 4:
@@ -417,18 +421,18 @@ func (tm *TerminalMatrix) GetMarker(mk int, striped bool) int {
 		case 5:
 			st = 12
 		case 6:
-			st = 13
+			st = ST_MARKER_BG_GREEN
 		case 7:
 			st = 14
 		}
 	} else {
 		switch mk {
 		case -1:
-			st = 4
+			st = ST_MARKER_RED
 		case 1:
-			st = 8
+			st = ST_MARKER_GREEN
 		case 2:
-			st = 4
+			st = ST_MARKER_RED
 		case 3:
 			st = 5
 		case 4:
@@ -436,7 +440,7 @@ func (tm *TerminalMatrix) GetMarker(mk int, striped bool) int {
 		case 5:
 			st = 7
 		case 6:
-			st = 8
+			st = ST_MARKER_GREEN
 		case 7:
 			st = 9
 		}
@@ -504,7 +508,7 @@ func (tm *TerminalMatrix) ConvertTable(x, y int, rt *table.Table) {
 }
 
 func (tm *TerminalMatrix) ConvertFullTable(x, y int, rt *table.Table) {
-	borderStyle := 1
+	borderStyle := ST_HEADER
 	var sizes = make([]int, 0)
 	var indices = make([]int, 0)
 	total := 0
@@ -555,9 +559,9 @@ func (tm *TerminalMatrix) ConvertFullTable(x, y int, rt *table.Table) {
 	yp++
 	xp = x
 	for j, r := range rt.Rows {
-		bs := 1
+		bs := ST_HEADER
 		if j%2 == 0 {
-			bs = 18
+			bs = ST_HEADER_BG
 		}
 		for i, c := range r.Cells {
 			st := tm.GetMarker(c.Marker, j%2 == 0)

@@ -1078,10 +1078,10 @@ const TableTemplate = `
               {{range .Cells}}
 				{{ $clr := ""}}
 				{{if eq .Marker -1 }}
-					{{$clr = "color:#ff2727;"}}
+					{{$clr = "color:#be0000;"}}
 				{{end}}
 				{{if eq .Marker 2 }}
-					{{$clr = "color:#ff2727;"}}
+					{{$clr = "color:#be0000;"}}
 				{{end}}
 				{{if eq .Marker 3 }}
 					{{$clr = "color:#c0a102;"}}
@@ -1132,10 +1132,10 @@ const HeadlessTableTemplate = `
               {{range .Cells}}
 				{{ $clr := ""}}
 				{{if eq .Marker -1 }}
-					{{$clr = "color:#ff2727;"}}
+					{{$clr = "color:#be0000;"}}
 				{{end}}
 				{{if eq .Marker 2 }}
-					{{$clr = "color:#ff2727;"}}
+					{{$clr = "color:#be0000;"}}
 				{{end}}
 				{{if eq .Marker 3 }}
 					{{$clr = "color:#c0a102;"}}
