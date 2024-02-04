@@ -507,6 +507,49 @@ func (tm *TerminalMatrix) ConvertTable(x, y int, rt *table.Table) {
 	}
 }
 
+func (tm *TerminalMatrix) ConvertHeatMap(x, y int, rt *table.HeatMap) {
+	tm.Write(x, y, rt.Name, ST_TEXT)
+	sz := 0
+	for j, r := range rt.Lines {
+		st := tm.GetMarker(0, j%2 == 0)
+		tmp := tm.Write(x, y+j+3, r.Name, st)
+		if tmp > sz {
+			sz = tmp
+		}
+
+	}
+	sz += 2
+	tm.VLine(x, y+1, sz+rt.Columns*2, ST_TEXT)
+	start := len(rt.Headers) - rt.Columns
+	if start < 0 {
+		start = 0
+	}
+	xp := x + sz - 1
+	for i, h := range rt.Headers {
+		if i >= start {
+			if i%5 == 0 {
+				tm.Write(xp, y+2, h, ST_TEXT)
+				xp += 10
+			}
+		}
+	}
+	yp := y + 3
+	for j, r := range rt.Lines {
+		start := len(r.Entries) - rt.Columns
+		if start < 0 {
+			start = 0
+		}
+		for i, c := range r.Entries {
+			if i >= start {
+				st := tm.GetMarker(c+2, j%2 == 0)
+				// ●•
+				tm.Write(x+(i-start)*2+sz, y+j+3, " ◼", st)
+			}
+		}
+		yp++
+	}
+}
+
 func (tm *TerminalMatrix) ConvertFullTable(x, y int, rt *table.Table) {
 	borderStyle := ST_HEADER
 	var sizes = make([]int, 0)

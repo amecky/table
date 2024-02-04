@@ -1341,13 +1341,21 @@ type ConsoleRenderer struct {
 	Styles  Styles
 }
 
+// #094A25, #0C6B37, #F8B324, #EB442C, #BC2023
 const (
-	BG_COLOR    = "#131313"
-	RED         = "#be0000"
-	ORANGE      = "#c0a102"
+	BG_COLOR = "#131313"
+	//RED         = "#be0000"
+	//ORANGE      = "#c0a102"
+	//BLUE        = "#1a7091"
+	//GREEN       = "#6cc717"
+	//LIGHT_GREEN = "#166a03"
+
+	RED         = "#cc0000"
+	ORANGE      = "#ff7800"
 	BLUE        = "#1a7091"
-	GREEN       = "#6cc717"
-	LIGHT_GREEN = "#166a03"
+	LIGHT_GREEN = "#008a33"
+	GREEN       = "#82cc00"
+
 	//TEXT_COLOR  = "#efefef"
 	TEXT_COLOR   = "#fff"
 	HEADER_COLOR = "#81858d"
