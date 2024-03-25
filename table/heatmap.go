@@ -83,7 +83,7 @@ func (hm *HeatMap) String() string {
 	cr := NewConsoleRenderer()
 	cr.Append(hm.Name, cr.Styles.Text)
 	cr.Append("\n", cr.Styles.Text)
-	cr.Append(strings.Repeat(V_LINE, size+hm.Columns*2+5), cr.Styles.Header)
+	cr.Append(strings.Repeat(DefaultBorder.V_LINE, size+hm.Columns*2+5), cr.Styles.Header)
 	cr.Append("\n", cr.Styles.Header)
 	if len(hm.Headers) > 0 {
 		cr.Append(strings.Repeat(" ", size-1), cr.Styles.Header)

@@ -453,7 +453,7 @@ func (tm *TerminalMatrix) ConvertTable(x, y int, rt *table.Table) {
 	var indices = make([]int, 0)
 	total := 0
 	ind := 0
-	for _, th := range rt.Headers {
+	for _, th := range rt.TableHeaders {
 		sizes = append(sizes, internalLen(th)+2)
 	}
 	for _, r := range rt.Rows {
@@ -470,13 +470,13 @@ func (tm *TerminalMatrix) ConvertTable(x, y int, rt *table.Table) {
 		total += s + 1
 	}
 	// Name
-	tm.Write(x, y, rt.Name, 0)
+	tm.Write(x, y, rt.Description, 0)
 	yp := y + 1
 	tm.VLine(x, yp, total, 1)
 	yp++
 	xp := x
 	// Headers
-	for j, h := range rt.Headers {
+	for j, h := range rt.TableHeaders {
 		xp = x + indices[j] + 1
 		tm.Write(xp, yp, FormatString(h, sizes[j], AlignCenter), 0)
 	}
@@ -556,7 +556,7 @@ func (tm *TerminalMatrix) ConvertFullTable(x, y int, rt *table.Table) {
 	var indices = make([]int, 0)
 	total := 0
 	ind := 0
-	for _, th := range rt.Headers {
+	for _, th := range rt.TableHeaders {
 		sizes = append(sizes, internalLen(th)+2)
 	}
 	for _, r := range rt.Rows {
@@ -572,7 +572,7 @@ func (tm *TerminalMatrix) ConvertFullTable(x, y int, rt *table.Table) {
 		ind += s + 1
 		total += s + 1
 	}
-	tm.Write(x, y, rt.Name, 0)
+	tm.Write(x, y, rt.Description, 0)
 	yp := y + 1
 	xp := x
 	tm.Set(xp, yp, TL_CORNER, borderStyle)
@@ -584,7 +584,7 @@ func (tm *TerminalMatrix) ConvertFullTable(x, y int, rt *table.Table) {
 	yp++
 	xp = x
 	tm.Set(xp, yp, H_LINE, borderStyle)
-	for j, h := range rt.Headers {
+	for j, h := range rt.TableHeaders {
 		xp = x + indices[j] + 1
 		tm.Write(xp, yp, FormatString(h, sizes[j], AlignCenter), 0)
 	}
