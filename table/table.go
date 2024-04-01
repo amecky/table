@@ -912,16 +912,6 @@ func internalLen(txt string) int {
 	return utf8.RuneCountInString(txt)
 }
 
-/*
-	func (cr *ConsoleRenderer) BorderLine(left, right string, sizes []int) {
-		rt.cr.Append(left, rt.cr.Styles.Header)
-		for _, i := range sizes {
-			rt.cr.Append(strings.Repeat(DefaultBorder.V_LINE, i+1), rt.cr.Styles.Header)
-		}
-		rt.cr.Append(right, rt.cr.Styles.Header)
-		rt.cr.Append("\n", rt.cr.Styles.Header)
-	}
-*/
 func (rt *Table) Width() int {
 	ret := 0
 	for _, th := range rt.TableHeaders {
@@ -1040,7 +1030,7 @@ func (rt *Table) String() string {
 			}
 		}
 		rt.cr.Append(rt.BorderStyle.BR_CORNER, rt.cr.Styles.Header)
-		rt.cr.Append("\n", rt.cr.Styles.Text)
+		//rt.cr.Append("\n", rt.cr.Styles.Text)
 	}
 	return rt.cr.String()
 }

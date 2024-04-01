@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/amecky/table/table"
-	"github.com/muesli/termenv"
+	term "github.com/amecky/table/term"
 )
 
 type TerminalCell struct {
@@ -33,23 +33,18 @@ type TerminalMatrix struct {
 	Height int
 	Width  int
 	Lines  []TerminalLine
-	Styles []StyleFn
+	Styles []term.Style
 	First  bool
 }
 
-type StyleFn func(string) string
-
-func NewStyle(fg string, bg string, bold bool) func(string) string {
-	p := termenv.ColorProfile()
-	s := termenv.Style{}.Foreground(p.Color(fg)).Background(p.Color(bg))
-	if bold {
-		s = s.Bold()
-	}
-	return s.Styled
+func NewStyle(fg string, bg string, bold bool) term.Style {
+	return term.NewStyle(term.Hex(fg), term.Hex(bg), bold)
 }
 
 const (
-	BG_COLOR = "#181818"
+	BG_COLOR = "#0c0c0c"
+
+	MARKED_BG_COLOR = "#1c1c1c"
 )
 
 const (
@@ -91,31 +86,31 @@ func NewTerminalMatrix(width, height int) *TerminalMatrix {
 		ret.Lines = append(ret.Lines, line)
 	}
 	// ST_TEXT
-	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", "", false))
+	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", BG_COLOR, false))
 	// ST_HEADER
-	ret.Styles = append(ret.Styles, NewStyle("#81858d", "", true))
-	ret.Styles = append(ret.Styles, NewStyle("#b2e539", "", true))
-	ret.Styles = append(ret.Styles, NewStyle("#ff7940", "", true))
+	ret.Styles = append(ret.Styles, NewStyle("#81858d", BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#b2e539", BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#ff7940", BG_COLOR, true))
 	// ST_MARKER_RED
-	ret.Styles = append(ret.Styles, NewStyle("#ee4035", "", true))
-	ret.Styles = append(ret.Styles, NewStyle("#f37736", "", true))
-	ret.Styles = append(ret.Styles, NewStyle("#0392cf", "", true))
-	ret.Styles = append(ret.Styles, NewStyle("#fdf498", "", true))
-	ret.Styles = append(ret.Styles, NewStyle("#7bc043", "", true))
-	// ST_MARKER_BG_RED
 	ret.Styles = append(ret.Styles, NewStyle("#ee4035", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#f37736", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#0392cf", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#fdf498", BG_COLOR, true))
 	ret.Styles = append(ret.Styles, NewStyle("#7bc043", BG_COLOR, true))
+	// ST_MARKER_BG_RED
+	ret.Styles = append(ret.Styles, NewStyle("#ee4035", MARKED_BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#f37736", MARKED_BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#0392cf", MARKED_BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#fdf498", MARKED_BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#7bc043", MARKED_BG_COLOR, true))
 	// ST_HEADER_BG
-	ret.Styles = append(ret.Styles, NewStyle("#81858d", BG_COLOR, false))
+	ret.Styles = append(ret.Styles, NewStyle("#81858d", MARKED_BG_COLOR, false))
 	// ST_INFO
-	ret.Styles = append(ret.Styles, NewStyle("#7584d9", "", true))
-	// ST_INFO_BG
 	ret.Styles = append(ret.Styles, NewStyle("#7584d9", BG_COLOR, true))
-	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", "#0C0C0C", true))
-	ret.Styles = append(ret.Styles, NewStyle("#81858d", BG_COLOR, true))
+	// ST_INFO_BG
+	ret.Styles = append(ret.Styles, NewStyle("#7584d9", MARKED_BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#d0d0d0", BG_COLOR, true))
+	ret.Styles = append(ret.Styles, NewStyle("#81858d", MARKED_BG_COLOR, true))
 
 	ret.Styles = append(ret.Styles, NewStyle("#efefef", "#ee4035", true))
 	ret.Styles = append(ret.Styles, NewStyle("#efefef", "#7584d9", true))
@@ -161,7 +156,7 @@ func (tm *TerminalMatrix) Set(x, y int, txt rune, style int) {
 	}
 }
 
-func (tm *TerminalMatrix) Write(x, y int, txt string, style int) int {
+func (tm *TerminalMatrix) writeLines(x, y int, txt string, style int) int {
 	ret := 0
 	if x < tm.Width && x >= 0 && y >= 0 && y < tm.Height && x+len(txt) < tm.Width {
 		r := &tm.Lines[y]
@@ -179,6 +174,22 @@ func (tm *TerminalMatrix) Write(x, y int, txt string, style int) int {
 		}
 	}
 	return ret
+}
+
+func (tm *TerminalMatrix) Write(x, y int, txt string, style int) int {
+	if strings.Contains("\n", txt) {
+		ret := 0
+		lines := strings.Split(txt, "\n")
+		for i, l := range lines {
+			tmp := tm.writeLines(x, y+i, l, style)
+			if tmp > ret {
+				ret = tmp
+			}
+		}
+		return ret
+	} else {
+		return tm.writeLines(x, y, txt, style)
+	}
 }
 
 func (tm *TerminalMatrix) WriteMarkedFloat(x, y int, txt string, v float64) int {
@@ -269,7 +280,7 @@ func (tm *TerminalMatrix) Flush() {
 			if r.Char == 0 {
 				io.WriteString(out, " ")
 			} else {
-				io.WriteString(out, tm.Styles[r.Style](fmt.Sprintf("%c", r.Char)))
+				io.WriteString(out, tm.Styles[r.Style].Convert(fmt.Sprintf("%c", r.Char)))
 			}
 		}
 		if l.Row != 0 {
@@ -288,7 +299,7 @@ func (tm *TerminalMatrix) String() string {
 			if r.Char == 0 {
 				ret.WriteString(" ")
 			} else {
-				ret.WriteString(tm.Styles[r.Style](fmt.Sprintf("%c", r.Char)))
+				ret.WriteString(tm.Styles[r.Style].Convert(fmt.Sprintf("%c", r.Char)))
 			}
 		}
 		if l.Row != 0 {
