@@ -1,12 +1,16 @@
 package table
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/amecky/table/term"
+)
 
 type ConsoleRenderer struct {
 	stylesCount      int
 	builder          strings.Builder
 	Styles           Styles
-	additionalStyles []StyleFn
+	additionalStyles []term.Style
 }
 
 // #094A25, #0C6B37, #F8B324, #EB442C, #BC2023
@@ -30,51 +34,27 @@ const (
 )
 
 func NewConsoleRenderer() *ConsoleRenderer {
-	/*
-		styles := Styles{
-			Text:                  NewStyle("#d0d0d0", "", false),
-			Header:                NewStyle(HEADER_COLOR, "", true),
-			PositiveMarker:        NewStyle(TEXT_COLOR, GREEN, true),
-			NegativeMarker:        NewStyle(TEXT_COLOR, RED, true),
-			ClassAMarker:          NewStyle(TEXT_COLOR, RED, true),
-			ClassBMarker:          NewStyle(TEXT_COLOR, ORANGE, true),
-			ClassCMarker:          NewStyle(TEXT_COLOR, BLUE, true),
-			ClassDMarker:          NewStyle(TEXT_COLOR, LIGHT_GREEN, true),
-			ClassEMarker:          NewStyle(TEXT_COLOR, GREEN, true),
-			ClassFMarker:          NewStyle(TEXT_COLOR, "#209c05", true),
-			HeaderStriped:         NewStyle(HEADER_COLOR, BG_COLOR, true),
-			TextStriped:           NewStyle("#81858d", BG_COLOR, false),
-			PositiveMarkerStriped: NewStyle(TEXT_COLOR, GREEN, true),
-			NegativeMarkerStriped: NewStyle(TEXT_COLOR, RED, true),
-			ClassAMarkerStriped:   NewStyle(TEXT_COLOR, RED, true),
-			ClassBMarkerStriped:   NewStyle(TEXT_COLOR, ORANGE, true),
-			ClassCMarkerStriped:   NewStyle(TEXT_COLOR, BLUE, true),
-			ClassDMarkerStriped:   NewStyle(TEXT_COLOR, LIGHT_GREEN, true),
-			ClassEMarkerStriped:   NewStyle(TEXT_COLOR, GREEN, true),
-			ClassFMarkerStriped:   NewStyle(TEXT_COLOR, "#209c05", true),
-		}
-	*/
 	styles := Styles{
-		Text:                  NewStyle("#d0d0d0", "", false),
-		Header:                NewStyle(HEADER_COLOR, "", true),
-		PositiveMarker:        NewStyle(GREEN, "", true),
-		NegativeMarker:        NewStyle(RED, "", true),
-		ClassAMarker:          NewStyle(RED, "", true),
-		ClassBMarker:          NewStyle(ORANGE, "", true),
-		ClassCMarker:          NewStyle(BLUE, "", true),
-		ClassDMarker:          NewStyle(LIGHT_GREEN, "", true),
-		ClassEMarker:          NewStyle(GREEN, "", true),
-		ClassFMarker:          NewStyle("#209c05", "", true),
-		HeaderStriped:         NewStyle(HEADER_COLOR, BG_COLOR, true),
-		TextStriped:           NewStyle("#81858d", BG_COLOR, false),
-		PositiveMarkerStriped: NewStyle(GREEN, BG_COLOR, true),
-		NegativeMarkerStriped: NewStyle(RED, BG_COLOR, true),
-		ClassAMarkerStriped:   NewStyle(RED, BG_COLOR, true),
-		ClassBMarkerStriped:   NewStyle(ORANGE, BG_COLOR, true),
-		ClassCMarkerStriped:   NewStyle(BLUE, BG_COLOR, true),
-		ClassDMarkerStriped:   NewStyle(LIGHT_GREEN, BG_COLOR, true),
-		ClassEMarkerStriped:   NewStyle(GREEN, BG_COLOR, true),
-		ClassFMarkerStriped:   NewStyle("#209c05", BG_COLOR, true),
+		Text:                  term.NewStyle(term.Hex("#d0d0d0"), term.Hex(""), false),
+		Header:                term.NewStyle(term.Hex(HEADER_COLOR), term.Hex(""), true),
+		PositiveMarker:        term.NewStyle(term.Hex(GREEN), term.Hex(""), true),
+		NegativeMarker:        term.NewStyle(term.Hex(RED), term.Hex(""), true),
+		ClassAMarker:          term.NewStyle(term.Hex(RED), term.Hex(""), true),
+		ClassBMarker:          term.NewStyle(term.Hex(ORANGE), term.Hex(""), true),
+		ClassCMarker:          term.NewStyle(term.Hex(BLUE), term.Hex(""), true),
+		ClassDMarker:          term.NewStyle(term.Hex(LIGHT_GREEN), term.Hex(""), true),
+		ClassEMarker:          term.NewStyle(term.Hex(GREEN), term.Hex(""), true),
+		ClassFMarker:          term.NewStyle(term.Hex("#209c05"), term.Hex(""), true),
+		HeaderStriped:         term.NewStyle(term.Hex(HEADER_COLOR), term.Hex(BG_COLOR), true),
+		TextStriped:           term.NewStyle(term.Hex("#81858d"), term.Hex(BG_COLOR), false),
+		PositiveMarkerStriped: term.NewStyle(term.Hex(GREEN), term.Hex(BG_COLOR), true),
+		NegativeMarkerStriped: term.NewStyle(term.Hex(RED), term.Hex(BG_COLOR), true),
+		ClassAMarkerStriped:   term.NewStyle(term.Hex(RED), term.Hex(BG_COLOR), true),
+		ClassBMarkerStriped:   term.NewStyle(term.Hex(ORANGE), term.Hex(BG_COLOR), true),
+		ClassCMarkerStriped:   term.NewStyle(term.Hex(BLUE), term.Hex(BG_COLOR), true),
+		ClassDMarkerStriped:   term.NewStyle(term.Hex(LIGHT_GREEN), term.Hex(BG_COLOR), true),
+		ClassEMarkerStriped:   term.NewStyle(term.Hex(GREEN), term.Hex(BG_COLOR), true),
+		ClassFMarkerStriped:   term.NewStyle(term.Hex("#209c05"), term.Hex(BG_COLOR), true),
 	}
 	return &ConsoleRenderer{
 		stylesCount: 20,
@@ -82,19 +62,19 @@ func NewConsoleRenderer() *ConsoleRenderer {
 	}
 }
 
-func (cr *ConsoleRenderer) AddStyle(style StyleFn) int {
+func (cr *ConsoleRenderer) AddStyle(style term.Style) int {
 	cr.additionalStyles = append(cr.additionalStyles, style)
 	return len(cr.additionalStyles) - 1 + cr.stylesCount
 }
-func (cr *ConsoleRenderer) Append(txt string, style StyleFn) {
-	cr.builder.WriteString(style(txt))
+func (cr *ConsoleRenderer) Append(txt string, style term.Style) {
+	cr.builder.WriteString(style.Convert(txt))
 }
 
 func (cr *ConsoleRenderer) String() string {
 	return cr.builder.String()
 }
 
-func (cr *ConsoleRenderer) Marker(mk int, striped bool) StyleFn {
+func (cr *ConsoleRenderer) Marker(mk int, striped bool) term.Style {
 	if mk >= cr.stylesCount {
 		return cr.additionalStyles[mk-cr.stylesCount]
 	}

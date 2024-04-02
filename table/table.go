@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/amecky/table/term"
 )
 
 const (
@@ -153,7 +155,7 @@ func New() *Table {
 }
 
 func (rt *Table) AddStyle(fg, bg string, bold bool) int {
-	return rt.cr.AddStyle(NewStyle(fg, bg, bold))
+	return rt.cr.AddStyle(term.NewStyle(term.Hex(fg), term.Hex(bg), bold))
 }
 
 func (rt *Table) Name(name string) *Table {
