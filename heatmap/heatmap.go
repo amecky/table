@@ -1,18 +1,32 @@
-package table
+package heatmap
 
 import (
-	"bytes"
-	"fmt"
 	"strings"
-	"text/template"
+
+	"github.com/amecky/table/term"
 )
+
+var STYLES = []term.Style{
+	term.NewStyle(term.Hex(term.WHITE), term.Hex(term.BACKGROUND), false),
+	term.NewStyle(term.Hex(term.GRAY), term.Hex(term.BACKGROUND_ODD), false),
+	term.NewStyle(term.Hex(term.RED), term.Hex(term.BACKGROUND), false),
+	term.NewStyle(term.Hex(term.YELLOW), term.Hex(term.BACKGROUND), false),
+	term.NewStyle(term.Hex(term.BLUE), term.Hex(term.BACKGROUND), false),
+	term.NewStyle(term.Hex("#008a33"), term.Hex(term.BACKGROUND), false),
+	term.NewStyle(term.Hex("#82cc00"), term.Hex(term.BACKGROUND), false),
+	term.NewStyle(term.Hex(term.RED), term.Hex(term.BACKGROUND_ODD), false),
+	term.NewStyle(term.Hex(term.YELLOW), term.Hex(term.BACKGROUND_ODD), false),
+	term.NewStyle(term.Hex(term.BLUE), term.Hex(term.BACKGROUND_ODD), false),
+	term.NewStyle(term.Hex("#008a33"), term.Hex(term.BACKGROUND_ODD), false),
+	term.NewStyle(term.Hex("#82cc00"), term.Hex(term.BACKGROUND_ODD), false),
+}
 
 type HeatMapLine struct {
 	Name    string
 	Entries []int
 }
 type HeatMap struct {
-	Name    string
+	name    string
 	Columns int
 	Offset  int
 	Lines   []HeatMapLine
@@ -20,19 +34,24 @@ type HeatMap struct {
 	Headers []string
 }
 
-func NewHeatMap(name string, cols int) *HeatMap {
+func New(name string, cols int) *HeatMap {
 	return &HeatMap{
 		Columns: cols,
-		Name:    name,
+		name:    name,
 		Score:   0.0,
 		Offset:  0,
 	}
 }
 
+func (h *HeatMap) Name(n string) *HeatMap {
+	h.name = n
+	return h
+}
+
 func NewHeatMapWithRows(name string, cols int, rowNames []string) *HeatMap {
 	ret := &HeatMap{
 		Columns: cols,
-		Name:    name,
+		name:    name,
 		Score:   0.0,
 	}
 	for _, c := range rowNames {
@@ -73,44 +92,31 @@ func (hm *HeatMap) AddLine(name string, values []int) {
 }
 
 func (hm *HeatMap) String() string {
-	size := 0
-	for _, th := range hm.Lines {
-		cs := len(th.Name) + 2
-		if cs > size {
-			size = cs
+	sb := strings.Builder{}
+	if hm.name != "" {
+		sb.WriteString(STYLES[0].Convert(hm.name))
+	}
+	sb.WriteRune('\n')
+	max := 0
+	for _, l := range hm.Lines {
+		if len(l.Name) > max {
+			max = len(l.Name)
 		}
 	}
-	cr := NewConsoleRenderer()
-	cr.Append(hm.Name, cr.Styles.Text)
-	cr.Append("\n", cr.Styles.Text)
-	cr.Append(strings.Repeat(DefaultBorder.V_LINE, size+hm.Columns*2+5), cr.Styles.Header)
-	cr.Append("\n", cr.Styles.Header)
-	if len(hm.Headers) > 0 {
-		cr.Append(strings.Repeat(" ", size-1), cr.Styles.Header)
-		start := len(hm.Headers) - hm.Columns
-		if hm.Offset > 0 {
-			start -= hm.Offset
+	max += 2
+	me := 0
+	for _, l := range hm.Lines {
+		if len(l.Entries)*2 > me {
+			me = len(l.Entries) * 2
 		}
-		if start < 0 {
-			start = 0
-		}
-		end := start + hm.Columns
-		for i, h := range hm.Headers {
-			if i >= start && i < end {
-				if i%5 == 0 {
-					cr.Append(h, cr.Styles.Header)
-					cr.Append(strings.Repeat(" ", 5), cr.Styles.Header)
-				}
-			}
-		}
-		cr.Append("\n", cr.Styles.Header)
 	}
+	sb.WriteString(STYLES[0].Convert(strings.Repeat("-", me+max)))
+	sb.WriteRune('\n')
 	for j, r := range hm.Lines {
-		str := FormatString(r.Name, size, 0)
-		if j%2 == 0 {
-			cr.Append(str, cr.Styles.Text)
-		} else {
-			cr.Append(str, cr.Styles.TextStriped)
+		sb.WriteString(STYLES[j%2].Convert(r.Name))
+		d := max - len(r.Name)
+		if d > 0 {
+			sb.WriteString(STYLES[j%2].Convert(strings.Repeat(" ", d)))
 		}
 		start := len(r.Entries) - hm.Columns
 		if hm.Offset > 0 {
@@ -120,49 +126,24 @@ func (hm *HeatMap) String() string {
 			start = 0
 		}
 		end := start + hm.Columns
+		cnt := 0
 		for i, v := range r.Entries {
 			if i >= start && i < end {
-
-				st := cr.Styles.Text
-				if v == -1 {
-					cr.Append("  ", st)
-				} else {
-					if j%2 != 0 {
-						switch v {
-						case 0:
-							st = cr.Styles.ClassAMarkerStriped
-						case 1:
-							st = cr.Styles.ClassBMarkerStriped
-						case 2:
-							st = cr.Styles.ClassCMarkerStriped
-						case 3:
-							st = cr.Styles.ClassDMarkerStriped
-						case 4:
-							st = cr.Styles.ClassEMarkerStriped
-						}
-					} else {
-						switch v {
-						case 0:
-							st = cr.Styles.ClassAMarker
-						case 1:
-							st = cr.Styles.ClassBMarker
-						case 2:
-							st = cr.Styles.ClassCMarker
-						case 3:
-							st = cr.Styles.ClassDMarker
-						case 4:
-							st = cr.Styles.ClassEMarker
-						}
-					}
-					cr.Append(" ◼", st)
-				}
+				st := STYLES[v+2+(j%2)*5]
+				sb.WriteString(st.Convert("◼ "))
+				cnt += 2
 			}
 		}
-		cr.Append("\n", cr.Styles.Text)
+		d = me - cnt
+		if d > 0 {
+			sb.WriteString(STYLES[j%2].Convert(strings.Repeat(" ", d)))
+		}
+		sb.WriteRune('\n')
 	}
-	return cr.String()
+	return sb.String()
 }
 
+/*
 func (hm *HeatMap) BuildHtml() string {
 	reportTemplate, err := template.New("report").Parse(HeatMapTemplate)
 	if err != nil {
@@ -194,3 +175,4 @@ func (hm *HeatMap) BuildInlineHtml() string {
 		return doc.String()
 	}
 }
+*/
