@@ -27,19 +27,17 @@ type HeatMapLine struct {
 }
 type HeatMap struct {
 	name    string
-	Columns int
 	Offset  int
 	Lines   []HeatMapLine
 	Score   float64
 	Headers []string
 }
 
-func New(name string, cols int) *HeatMap {
+func New(name string) *HeatMap {
 	return &HeatMap{
-		Columns: cols,
-		name:    name,
-		Score:   0.0,
-		Offset:  0,
+		name:   name,
+		Score:  0.0,
+		Offset: 0,
 	}
 }
 
@@ -48,11 +46,10 @@ func (h *HeatMap) Name(n string) *HeatMap {
 	return h
 }
 
-func NewHeatMapWithRows(name string, cols int, rowNames []string) *HeatMap {
+func NewHeatMapWithRows(name string, rowNames []string) *HeatMap {
 	ret := &HeatMap{
-		Columns: cols,
-		name:    name,
-		Score:   0.0,
+		name:  name,
+		Score: 0.0,
 	}
 	for _, c := range rowNames {
 		ret.Lines = append(ret.Lines, HeatMapLine{
@@ -71,9 +68,11 @@ func (l *HeatMapLine) Add(v int) {
 }
 
 func (hm *HeatMap) AddValue(line, v int) {
-	if line >= 0 && line < len(hm.Lines) {
-		l := &hm.Lines[line]
-		l.Entries = append(l.Entries, v)
+	if v >= 0 && v <= 4 {
+		if line >= 0 && line < len(hm.Lines) {
+			l := &hm.Lines[line]
+			l.Entries = append(l.Entries, v)
+		}
 	}
 }
 
@@ -118,21 +117,14 @@ func (hm *HeatMap) String() string {
 		if d > 0 {
 			sb.WriteString(STYLES[j%2].Convert(strings.Repeat(" ", d)))
 		}
-		start := len(r.Entries) - hm.Columns
-		if hm.Offset > 0 {
-			start -= hm.Offset
-		}
-		if start < 0 {
-			start = 0
-		}
-		end := start + hm.Columns
 		cnt := 0
-		for i, v := range r.Entries {
-			if i >= start && i < end {
-				st := STYLES[v+2+(j%2)*5]
-				sb.WriteString(st.Convert("◼ "))
-				cnt += 2
+		for _, v := range r.Entries {
+			if v < 0 || v > 4 {
+				v = 0
 			}
+			st := STYLES[v+2+(j%2)*5]
+			sb.WriteString(st.Convert("◼ "))
+			cnt += 2
 		}
 		d = me - cnt
 		if d > 0 {
