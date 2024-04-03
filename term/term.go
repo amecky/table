@@ -49,8 +49,8 @@ const (
 	SELECTION_BACKGROUND = "#b5d5ff"
 )
 
-var TEXT_STYLE = NewStyle(WHITE, BLACK, false)
-var TEXT_STYLE_ODD = NewStyle(GRAY, BLACK, false)
+var TEXT_STYLE = NewStyle(WHITE, "", false)
+var TEXT_STYLE_ODD = NewStyle(GRAY, "", false)
 
 func NewStyle(f, b string, bld bool) Style {
 	s := Style{}

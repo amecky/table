@@ -25,8 +25,8 @@ func main() {
 		r.AddDefaultText(fmt.Sprintf("Row %d", i))
 		r.AddInt(i*2+200, mk)
 	}
-	st := term.NewStyle("#ff0000", "#0c0c0c", true)
-	st2 := term.NewStyle("#ababab", "#0c0c0c", false)
+	st := term.NewStyle("#ff0000", "", true)
+	st2 := term.NewStyle("#ababab", "", false)
 	g := term.Grid{
 		Rows: []term.GridRow{
 			{
@@ -62,8 +62,8 @@ func main() {
 			{
 				Padding: 2,
 				Cells: []term.GridCell{
-					{Plain: true, Width: tbl.Width(), Text: tbl.String()},
-					{Plain: true, Width: tbl2.Width(), Text: tbl2.String()},
+					{Plain: true, Width: 40, Text: tbl.String()},
+					{Plain: true, Width: 30, Text: tbl2.String()},
 				},
 			},
 			{
@@ -75,18 +75,4 @@ func main() {
 		},
 	}
 	fmt.Println(g)
-
-	//fmt.Println(tbl)
-
-	//st.Debug("Hello world")
-	//fmt.Println(st.Convert("This is my test"))
-	//fmt.Println(st.Convert("and here is more"))
-
-	//st2 := NewStyle(Hex("#ff0000"), Hex("#0000ff"), false)
-	//fmt.Println(st2.Debug())
-	//seq := "1;38;2;247;100;0;48;2;0;255;100"
-	//txt := fmt.Sprintf("%s%sm%s%sm", CSI, seq, "Hello world", CSI+ResetSeq)
-	//txt := fmt.Sprintf("%s%sm%s%sm", CSI, seq, "Hello world", CSI+ResetSeq)
-	//fmt.Println(txt)
-
 }
