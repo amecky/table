@@ -155,7 +155,7 @@ func New() *Table {
 }
 
 func (rt *Table) AddStyle(fg, bg string, bold bool) int {
-	return rt.cr.AddStyle(term.NewStyle(term.Hex(fg), term.Hex(bg), bold))
+	return rt.cr.AddStyle(term.NewStyle(fg, bg, bold))
 }
 
 func (rt *Table) Name(name string) *Table {

@@ -21,6 +21,7 @@ type Style struct {
 	foreground Color
 	background Color
 	bold       bool
+	flags      uint8
 }
 
 const (
@@ -48,23 +49,37 @@ const (
 	SELECTION_BACKGROUND = "#b5d5ff"
 )
 
-var TEXT_STYLE = NewStyle(Hex(WHITE), Hex(BLACK), false)
-var TEXT_STYLE_ODD = NewStyle(Hex(GRAY), Hex(BLACK), false)
+var TEXT_STYLE = NewStyle(WHITE, BLACK, false)
+var TEXT_STYLE_ODD = NewStyle(GRAY, BLACK, false)
 
-func NewStyle(f, b Color, bld bool) Style {
-	return Style{
-		foreground: f,
-		background: b,
-		bold:       bld,
+func NewStyle(f, b string, bld bool) Style {
+	s := Style{}
+	if f != "" {
+		s.foreground = Hex(f)
+		s.flags = 1
 	}
+	if b != "" {
+		s.background = Hex(b)
+		s.flags = s.flags | 2
+	}
+	if bld {
+		s.flags = s.flags | 4
+	}
+	return s
 }
 
 func (s Style) Convert(t string) string {
 	b := newBuffer()
-	if s.bold {
+	if s.flags&4 != 0 {
 		b.bold()
 	}
-	return b.forground(s.foreground).background(s.background).text(t).String()
+	if s.flags&1 != 0 {
+		b.forground(s.foreground)
+	}
+	if s.flags&2 != 0 {
+		b.background(s.background)
+	}
+	return b.text(t).String()
 }
 
 func (s Style) Debug() string {

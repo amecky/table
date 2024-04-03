@@ -7,18 +7,18 @@ import (
 )
 
 var STYLES = []term.Style{
-	term.NewStyle(term.Hex(term.WHITE), term.Hex(term.BACKGROUND), false),
-	term.NewStyle(term.Hex(term.GRAY), term.Hex(term.BACKGROUND_ODD), false),
-	term.NewStyle(term.Hex(term.RED), term.Hex(term.BACKGROUND), false),
-	term.NewStyle(term.Hex(term.YELLOW), term.Hex(term.BACKGROUND), false),
-	term.NewStyle(term.Hex(term.BLUE), term.Hex(term.BACKGROUND), false),
-	term.NewStyle(term.Hex("#008a33"), term.Hex(term.BACKGROUND), false),
-	term.NewStyle(term.Hex("#82cc00"), term.Hex(term.BACKGROUND), false),
-	term.NewStyle(term.Hex(term.RED), term.Hex(term.BACKGROUND_ODD), false),
-	term.NewStyle(term.Hex(term.YELLOW), term.Hex(term.BACKGROUND_ODD), false),
-	term.NewStyle(term.Hex(term.BLUE), term.Hex(term.BACKGROUND_ODD), false),
-	term.NewStyle(term.Hex("#008a33"), term.Hex(term.BACKGROUND_ODD), false),
-	term.NewStyle(term.Hex("#82cc00"), term.Hex(term.BACKGROUND_ODD), false),
+	term.NewStyle(term.WHITE, term.BACKGROUND, false),
+	term.NewStyle(term.GRAY, term.BACKGROUND_ODD, false),
+	term.NewStyle(term.RED, term.BACKGROUND, false),
+	term.NewStyle(term.YELLOW, term.BACKGROUND, false),
+	term.NewStyle(term.BLUE, term.BACKGROUND, false),
+	term.NewStyle("#008a33", term.BACKGROUND, false),
+	term.NewStyle("#82cc00", term.BACKGROUND, false),
+	term.NewStyle(term.RED, term.BACKGROUND_ODD, false),
+	term.NewStyle(term.YELLOW, term.BACKGROUND_ODD, false),
+	term.NewStyle(term.BLUE, term.BACKGROUND_ODD, false),
+	term.NewStyle("#008a33", term.BACKGROUND_ODD, false),
+	term.NewStyle("#82cc00", term.BACKGROUND_ODD, false),
 }
 
 type HeatMapLine struct {
