@@ -294,7 +294,7 @@ func internalLength(s string) int {
 					}
 				}
 				t = t[start+1:]
-				l += internalLen(t) - 4
+				l += internalLen(t)
 			}
 		}
 		return l
@@ -355,7 +355,7 @@ func (r GridRow) String() string {
 				}
 			} else {
 				if c.Plain {
-					sb.WriteString(strings.Repeat(" ", c.Width+2*r.Padding))
+					sb.WriteString(strings.Repeat(" ", c.Width))
 				} else {
 					sb.WriteString(strings.Repeat(" ", c.Width))
 				}
