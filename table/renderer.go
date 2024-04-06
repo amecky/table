@@ -16,7 +16,7 @@ type ConsoleRenderer struct {
 // #094A25, #0C6B37, #F8B324, #EB442C, #BC2023
 const (
 	BG_COLOR     = "#0C0C0C"
-	BG_COLOR_ODD = "#1C1C1C"
+	BG_COLOR_ODD = "#0f0f0f"
 	//RED         = "#be0000"
 	//ORANGE      = "#c0a102"
 	//BLUE        = "#1a7091"

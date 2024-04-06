@@ -124,23 +124,24 @@ func (m *MarkedTextList) Add(txt string, marker int) {
 	})
 }
 
-func NewTable(name string, headers []string) *Table {
-	tbl := Table{
-		Description:  name,
-		TableHeaders: headers,
-		Count:        0,
-		Limit:        -1,
-		Created:      time.Now().Format("2006-01-02 15:04"),
-		BorderStyle:  DefaultBorder,
-		PaddingSize:  1,
+/*
+	func NewTable(name string, headers []string) *Table {
+		tbl := Table{
+			Description:  name,
+			TableHeaders: headers,
+			Count:        0,
+			Limit:        -1,
+			Created:      time.Now().Format("2006-01-02 15:04"),
+			BorderStyle:  DefaultBorder,
+			PaddingSize:  1,
+		}
+		tbl.Formatters = DefaultFormatters()
+		for _, header := range headers {
+			tbl.HeaderSizes = append(tbl.HeaderSizes, len(header))
+		}
+		return &tbl
 	}
-	tbl.Formatters = DefaultFormatters()
-	for _, header := range headers {
-		tbl.HeaderSizes = append(tbl.HeaderSizes, len(header))
-	}
-	return &tbl
-}
-
+*/
 func New() *Table {
 	tbl := Table{
 		Count:       0,
@@ -837,7 +838,7 @@ func (rt *Table) RebuildSizes() {
 }
 
 func (tr *Table) Sub(start, end int) *Table {
-	ret := NewTable(tr.Description, tr.TableHeaders)
+	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
 	if end > len(tr.Rows) {
 		end = len(tr.Rows)
 	}
@@ -849,7 +850,7 @@ func (tr *Table) Sub(start, end int) *Table {
 
 func (tr *Table) Filter(f string) *Table {
 	def := BuildFilterDef(f)
-	ret := NewTable(tr.Description, tr.TableHeaders)
+	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
 	rc := tr.FindColumnIndex(def.Header)
 	if rc != -1 {
 		for _, r := range tr.Rows {
@@ -885,7 +886,7 @@ func (tr *Table) FilterRecent(num int) *Table {
 	if num == -1 {
 		return tr
 	}
-	ret := NewTable(tr.Description, tr.TableHeaders)
+	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
 	start := len(tr.Rows) - num
 	if start < 0 {
 		start = 0
@@ -903,7 +904,7 @@ func (tr *Table) Top(num int) *Table {
 	if num > len(tr.Rows) {
 		num = len(tr.Rows)
 	}
-	ret := NewTable(tr.Description, tr.TableHeaders)
+	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
 	for i := 0; i < num; i++ {
 		ret.Rows = append(ret.Rows, tr.Rows[i])
 	}
