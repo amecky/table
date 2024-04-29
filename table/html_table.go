@@ -7,7 +7,7 @@ import (
 )
 
 const TableTemplate = `
-<table class="table table-dark table-bordered">
+<table class="table table-bordered">
         <thead>
           <tr>
             {{ range .TableHeaders }}

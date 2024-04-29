@@ -43,7 +43,7 @@ const (
 	BRIGHT_CYAN          = "#34e2e2"
 	BRIGHT_WHITE         = "#eeeeec"
 	BACKGROUND           = "#0c0c0c"
-	BACKGROUND_ODD       = "#1c1c1c"
+	BACKGROUND_ODD       = "#0d0d0d"
 	FOREGROUND           = "#eeeeec"
 	CURSOR               = "#bbbbbb"
 	SELECTION_BACKGROUND = "#b5d5ff"
