@@ -57,6 +57,14 @@ var TriangleSymbols = symbols{
 	[]string{"⯆", "⯇", "◼", "⯈", "⯅"},
 }
 
+var CharSymbols = symbols{
+	[]string{"E", "D", "C", "B", "A"},
+}
+
+var WordSymbols = symbols{
+	[]string{"Tiny", "Weak", "Medium", "Strong", "Huge"},
+}
+
 type HeatMapLine struct {
 	Name    string
 	Entries []int
@@ -67,7 +75,7 @@ type HeatMap struct {
 	recent    int
 	Lines     []HeatMapLine
 	Score     float64
-	Headers   []string
+	headers   []string
 	scheme    ColorScheme
 	oddScheme ColorScheme
 	padding   int
@@ -104,6 +112,11 @@ func New(name string) *HeatMap {
 
 func (h *HeatMap) Name(n string) *HeatMap {
 	h.name = n
+	return h
+}
+
+func (h *HeatMap) Headers(n []string) *HeatMap {
+	h.headers = n
 	return h
 }
 
@@ -263,15 +276,66 @@ func (hm *HeatMap) String() string {
 	return sb.String()
 }
 
-func (hm *HeatMap) Html() string {
+type HeatmapHtmlRenderer interface {
+	Start() string
+	StartRow() string
+	EndRow() string
+	RenderCell(v int) string
+	End() string
+}
 
-	del := "|" + strings.Repeat(" ", hm.padding)
-	dl := len(del)
+type DefaultHeatmapHtmlRenderer struct {
+	symbols symbols
+}
 
+func (dr DefaultHeatmapHtmlRenderer) Start() string {
+	return "<table class=\"table table-bordered\">"
+}
+func (dr DefaultHeatmapHtmlRenderer) StartRow() string {
+	return "<tr>\n"
+}
+func (dr DefaultHeatmapHtmlRenderer) EndRow() string {
+	return "</tr>\n"
+}
+func (dr DefaultHeatmapHtmlRenderer) RenderCell(v int) string {
+	ret := "<td style=\"color:"
+	switch v {
+	case 0:
+		ret += "#ff0000"
+	case 1:
+		ret += "#ff6700"
+	case 2:
+		ret += term.BLUE
+	case 3:
+		ret += "#6fa287"
+	case 4:
+		ret += "#00ff00"
+	}
+	ret += "; text-align:center\">"
+	ret += dr.symbols.symbol[v]
+	ret += "</td>"
+	return ret
+}
+
+func (dr DefaultHeatmapHtmlRenderer) End() string {
+	return "</table>\n"
+}
+
+func (hm *HeatMap) RenderHtml(renderer HeatmapHtmlRenderer) string {
 	sb := strings.Builder{}
-	sb.WriteString("<table class=\"table table-bordered\">\n<tbody>\n")
+	sb.WriteString(renderer.Start())
+	if len(hm.headers) > 0 {
+		sb.WriteString("<thead><tr>\n")
+		sb.WriteString("<th>Value</th>")
+		for _, h := range hm.headers {
+			sb.WriteString("<th>" + h + "</th>")
+		}
+		sb.WriteString("</tr>")
+		sb.WriteString("</thead>")
+	}
+	sb.WriteString("\n<tbody>\n")
 	for _, r := range hm.Lines {
-		sb.WriteString("<tr>")
+		sb.WriteString(renderer.StartRow())
 		start := hm.offset
 		if hm.recent > 0 {
 			start = len(r.Entries) - hm.recent
@@ -279,73 +343,27 @@ func (hm *HeatMap) Html() string {
 		sb.WriteString("<td>")
 		sb.WriteString(r.Name)
 		sb.WriteString("</td>")
-		cnt := 0
-
 		for i, v := range r.Entries {
 			cv := v
 			if i >= start {
-				if hm.delimiter > 0 && i%hm.delimiter == 0 {
-					sb.WriteString(del)
-					cnt += dl
-				}
 				if cv > 4 {
 					cv = 4
 				}
 				if v < 0 {
 					cv = 0
 				}
-				sb.WriteString("<td style=\"color:")
-				switch cv {
-				case 0:
-					sb.WriteString("#ff0000")
-				case 1:
-					sb.WriteString("#ff6700")
-				case 2:
-					sb.WriteString(term.BLUE)
-				case 3:
-					sb.WriteString("#6fa287")
-				case 4:
-					sb.WriteString("#00ff00")
-				}
-				sb.WriteString("\">■</td>")
+				sb.WriteString(renderer.RenderCell(cv))
 			}
 		}
-		sb.WriteString("</tr>\n")
+		sb.WriteString(renderer.EndRow())
 	}
-	sb.WriteString("</tbody></table>\n")
+	sb.WriteString("</tbody>\n")
+	sb.WriteString(renderer.End())
 	return sb.String()
 }
 
-/*
-func (hm *HeatMap) BuildHtml() string {
-	reportTemplate, err := template.New("report").Parse(HeatMapTemplate)
-	if err != nil {
-		fmt.Println(err)
-		return "<h6>" + err.Error() + "</h6>"
-	} else {
-		var doc bytes.Buffer
-		err := reportTemplate.Execute(&doc, hm)
-		if err != nil {
-			fmt.Println(err)
-			return ""
-		}
-		return doc.String()
-	}
+func (hm *HeatMap) Html() string {
+	return hm.RenderHtml(DefaultHeatmapHtmlRenderer{
+		symbols: hm.symbols,
+	})
 }
-
-func (hm *HeatMap) BuildInlineHtml() string {
-	reportTemplate, err := template.New("report").Parse(InlineHeatMapTemplate)
-	if err != nil {
-		fmt.Println(err)
-		return "<h6>" + err.Error() + "</h6>"
-	} else {
-		var doc bytes.Buffer
-		err := reportTemplate.Execute(&doc, hm)
-		if err != nil {
-			fmt.Println(err)
-			return ""
-		}
-		return doc.String()
-	}
-}
-*/
