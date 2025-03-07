@@ -11,7 +11,7 @@ const TableTemplate = `
         <thead>
           <tr>
             {{ range .TableHeaders }}
-            <th scope="col" style='text-align:center'>{{.}}</th>
+            <th scope="col" style='text-align:center'>{{.Text}}</th>
             {{ end }}
           </tr>
         </thead>
@@ -21,25 +21,25 @@ const TableTemplate = `
               {{range .Cells}}
 				{{ $clr := ""}}
 				{{if eq .Marker -1 }}
-					{{$clr = "color:#ff2222;"}}
+					{{$clr = "background-color:#ff2222;"}}
 				{{end}}
 				{{if eq .Marker 2 }}
-					{{$clr = "color:#ff2222;"}}
+					{{$clr = "background-color:#ff2222;"}}
 				{{end}}
 				{{if eq .Marker 3 }}
-					{{$clr = "color:#c0a102;"}}
+					{{$clr = "background-color:#c0a102;"}}
 				{{end}}
 				{{if eq .Marker 4 }}
-					{{$clr = "color:#1a7091;"}}
+					{{$clr = "background-color:#1a7091;"}}
 				{{end}}
 				{{if eq .Marker 5 }}
-					{{$clr = "color:#21870a;"}}
+					{{$clr = "background-color:#21870a;"}}
 				{{end}}
 				{{if eq .Marker 6 }}
-					{{$clr = "color:#00ff00;"}}
+					{{$clr = "background-color:#00ff00;"}}
 				{{end}}
 				{{if eq .Marker 1 }}
-					{{$clr = "color:#00ff00;"}}
+					{{$clr = "background-color:#00ff00;"}}
 				{{end}}
 
 				{{$al := ""}}				

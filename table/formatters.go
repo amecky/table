@@ -8,19 +8,20 @@ import (
 type FormatterFn func(values []float64, index int) (string, int, int)
 
 type Formatters struct {
-	Float           FormatterFn
-	Int             FormatterFn
-	HistoInt        FormatterFn
-	MarkedFloat     FormatterFn
-	Histo           FormatterFn
-	Block           FormatterFn
-	HistoBlock      FormatterFn
-	ColorBlock      FormatterFn
-	Percentage      FormatterFn
-	Relation        FormatterFn
-	Categorized     FormatterFn
-	CategorizedNorm FormatterFn
-	BuySell         FormatterFn
+	Float                 FormatterFn
+	Int                   FormatterFn
+	HistoInt              FormatterFn
+	MarkedFloat           FormatterFn
+	Histo                 FormatterFn
+	Block                 FormatterFn
+	HistoBlock            FormatterFn
+	ColorBlock            FormatterFn
+	Percentage            FormatterFn
+	Relation              FormatterFn
+	Categorized           FormatterFn
+	CategorizedPercentage FormatterFn
+	CategorizedNorm       FormatterFn
+	BuySell               FormatterFn
 }
 
 func DefaultFormatters() Formatters {
@@ -63,6 +64,22 @@ func DefaultFormatters() Formatters {
 				marker = 6
 			}
 			return fmt.Sprintf("%.2f", v), marker, 1
+		},
+		CategorizedPercentage: func(values []float64, index int) (string, int, int) {
+			v := values[index]
+			marker := 4
+			if v < 20.0 {
+				marker = 2
+			} else if v < 40.0 {
+				marker = 3
+			} else if v < 60.0 {
+				marker = 4
+			} else if v < 80.0 {
+				marker = 5
+			} else {
+				marker = 6
+			}
+			return fmt.Sprintf("%.2f%%", v), marker, 1
 		},
 		CategorizedNorm: func(values []float64, index int) (string, int, int) {
 			v := values[index]

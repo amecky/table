@@ -71,10 +71,15 @@ const (
 	AlignCenter
 )
 
+type TableHeader struct {
+	Text   string
+	Marker int
+}
+
 type Table struct {
 	Description  string
 	Created      string
-	TableHeaders []string
+	TableHeaders []TableHeader
 	Rows         []Row
 	Count        int
 	HeaderSizes  []int
@@ -86,8 +91,9 @@ type Table struct {
 }
 
 type Row struct {
-	Size  int
-	Cells []Cell
+	Size        int
+	Cells       []Cell
+	Highlighted bool
 }
 
 type Cell struct {
@@ -165,7 +171,14 @@ func (rt *Table) Name(name string) *Table {
 }
 
 func (rt *Table) Headers(headers ...string) *Table {
-	rt.TableHeaders = headers
+	for _, h := range headers {
+		rt.TableHeaders = append(rt.TableHeaders, TableHeader{Text: h, Marker: 0})
+	}
+	return rt
+}
+
+func (rt *Table) MarkedHeaders(headers ...TableHeader) *Table {
+	rt.TableHeaders = append(rt.TableHeaders, headers...)
 	return rt
 }
 
@@ -184,14 +197,24 @@ func (rt *Table) Padding(padding int) *Table {
 	return rt
 }
 
+func (rt *Table) Style(styles Styles) *Table {
+	rt.cr.SetStyle(styles)
+	return rt
+}
+
 func (rt *Table) TableHeader(idx int, name string) *Table {
-	rt.TableHeaders[idx] = name
+	rt.TableHeaders[idx].Text = name
+	return rt
+}
+
+func (rt *Table) MarkHeader(idx, marker int) *Table {
+	rt.TableHeaders[idx].Marker = marker
 	return rt
 }
 
 func (rt *Table) FindColumnIndex(name string) int {
 	for i, h := range rt.TableHeaders {
-		if h == name {
+		if h.Text == name {
 			return i
 		}
 	}
@@ -210,7 +233,7 @@ func (rt *Table) SetText(row, col int, txt string) {
 func (rt *Table) Sort(name string) {
 	idx := -1
 	for i, n := range rt.TableHeaders {
-		if n == name {
+		if n.Text == name {
 			idx = i
 		}
 	}
@@ -224,7 +247,7 @@ func (rt *Table) Sort(name string) {
 func (rt *Table) SortReverse(name string) {
 	idx := -1
 	for i, n := range rt.TableHeaders {
-		if n == name {
+		if n.Text == name {
 			idx = i
 		}
 	}
@@ -253,11 +276,11 @@ func (rt *Table) DelimiterLine(txt string) *Row {
 }
 
 func (rt *Table) AddTableHeader(name string) {
-	rt.TableHeaders = append(rt.TableHeaders, name)
+	rt.TableHeaders = append(rt.TableHeaders, TableHeader{Text: name, Marker: 0})
 }
 
 func (rt *Table) AddColumn(name string, values []float64, fn FormatterFn) {
-	rt.TableHeaders = append(rt.TableHeaders, name)
+	rt.TableHeaders = append(rt.TableHeaders, TableHeader{Text: name, Marker: 0})
 	if len(rt.Rows) == 0 {
 		for i := 0; i < len(values); i++ {
 			r := rt.CreateRow()
@@ -276,7 +299,7 @@ func (rt *Table) AddColumn(name string, values []float64, fn FormatterFn) {
 }
 
 func (rt *Table) AddIntColumn(name string, values []int) {
-	rt.TableHeaders = append(rt.TableHeaders, name)
+	rt.TableHeaders = append(rt.TableHeaders, TableHeader{Text: name, Marker: 0})
 	if len(rt.Rows) == 0 {
 		for i := 0; i < len(values); i++ {
 			r := rt.CreateRow()
@@ -293,7 +316,7 @@ func (rt *Table) AddIntColumn(name string, values []int) {
 }
 
 func (rt *Table) AddStringColumn(name string, values []string) {
-	rt.TableHeaders = append(rt.TableHeaders, name)
+	rt.TableHeaders = append(rt.TableHeaders, TableHeader{Text: name, Marker: 0})
 	if len(rt.Rows) == 0 {
 		for _, s := range values {
 			r := rt.CreateRow()
@@ -309,8 +332,25 @@ func (rt *Table) AddStringColumn(name string, values []string) {
 	}
 }
 
+func (rt *Table) AddFormattedStringColumn(name string, values []string, format func(current string) string) {
+	rt.TableHeaders = append(rt.TableHeaders, TableHeader{Text: name, Marker: 0})
+	if len(rt.Rows) == 0 {
+		for _, s := range values {
+			r := rt.CreateRow()
+			r.AddDefaultText(format(s))
+		}
+	} else {
+		for i := 0; i < len(rt.Rows); i++ {
+			r := &rt.Rows[i]
+			if i < len(values) {
+				r.AddDefaultText(format(values[i]))
+			}
+		}
+	}
+}
+
 func (rt *Table) AddMarkedTextColumn(name string, values []MarkedText) {
-	rt.TableHeaders = append(rt.TableHeaders, name)
+	rt.TableHeaders = append(rt.TableHeaders, TableHeader{Text: name, Marker: 0})
 	if len(rt.Rows) == 0 {
 		for _, s := range values {
 			r := rt.CreateRow()
@@ -651,14 +691,12 @@ func (tr *Row) AddCategorizedPercentage(v, steps float64) *Row {
 	if marker >= 2 && marker <= 6 {
 		text = CAT_DESCRIPTORS[marker-2]
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      text,
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     v,
-		})
-	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      text,
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
 	return tr
 }
 
@@ -671,35 +709,33 @@ func (tr *Row) AddColouredPercentage(v, steps float64) *Row {
 		}
 		s += steps
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f%%", v),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     v,
-		})
-	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%.2f%%", v),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
 	return tr
 }
 
-func (tr *Row) AddMarkedPercentage(v, steps float64) *Row {
+func (tr *Row) AddMarkedPercentage(v float64, steps int) *Row {
 	s := 0.0
 	marker := 1
-	vp := v * 100.0
-	for i := 0; i < 5; i++ {
+	vp := v
+	//vp := v * 100.0
+	si := 100.0 / float64(steps)
+	for i := 0; i < steps; i++ {
 		if vp >= s {
 			marker++
 		}
-		s += steps
+		s += si
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f%%", vp),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     v,
-		})
-	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%.2f%%", vp),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
 	return tr
 }
 
@@ -718,14 +754,12 @@ func (tr *Row) AddMarkedFloat(v float64) *Row {
 	if txt == "0.00" {
 		marker = 0
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      txt,
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     v,
-		})
-	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      txt,
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
 	return tr
 }
 
@@ -737,14 +771,12 @@ func (tr *Row) AddMarkedInt(v int) *Row {
 	if v > 0 {
 		marker = 1
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%d", v),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     float64(v),
-		})
-	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%d", v),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     float64(v),
+	})
 	return tr
 }
 
@@ -756,26 +788,22 @@ func (tr *Row) AddMarkedFloatThreshold(v, t float64) *Row {
 	if v >= t {
 		marker = 1
 	}
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%.2f", v),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     v,
-		})
-	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%.2f", v),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     v,
+	})
 	return tr
 }
 
 func (tr *Row) AddInt(v int, marker int) *Row {
-	if len(tr.Cells) < tr.Size {
-		tr.Cells = append(tr.Cells, Cell{
-			Text:      fmt.Sprintf("%d", v),
-			Marker:    marker,
-			Alignment: AlignRight,
-			Value:     float64(v),
-		})
-	}
+	tr.Cells = append(tr.Cells, Cell{
+		Text:      fmt.Sprintf("%d", v),
+		Marker:    marker,
+		Alignment: AlignRight,
+		Value:     float64(v),
+	})
 	return tr
 }
 
@@ -838,7 +866,7 @@ func (rt *Table) RebuildSizes() {
 }
 
 func (tr *Table) Sub(start, end int) *Table {
-	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
+	ret := New().Name(tr.Description).MarkedHeaders(tr.TableHeaders...)
 	if end > len(tr.Rows) {
 		end = len(tr.Rows)
 	}
@@ -850,7 +878,7 @@ func (tr *Table) Sub(start, end int) *Table {
 
 func (tr *Table) Filter(f string) *Table {
 	def := BuildFilterDef(f)
-	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
+	ret := New().Name(tr.Description).MarkedHeaders(tr.TableHeaders...)
 	rc := tr.FindColumnIndex(def.Header)
 	if rc != -1 {
 		for _, r := range tr.Rows {
@@ -886,7 +914,7 @@ func (tr *Table) FilterRecent(num int) *Table {
 	if num == -1 {
 		return tr
 	}
-	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
+	ret := New().Name(tr.Description).MarkedHeaders(tr.TableHeaders...)
 	start := len(tr.Rows) - num
 	if start < 0 {
 		start = 0
@@ -904,7 +932,7 @@ func (tr *Table) Top(num int) *Table {
 	if num > len(tr.Rows) {
 		num = len(tr.Rows)
 	}
-	ret := New().Name(tr.Description).Headers(tr.TableHeaders...)
+	ret := New().Name(tr.Description).MarkedHeaders(tr.TableHeaders...)
 	for i := 0; i < num; i++ {
 		ret.Rows = append(ret.Rows, tr.Rows[i])
 	}
@@ -918,7 +946,7 @@ func internalLen(txt string) int {
 func (rt *Table) Width() int {
 	ret := 0
 	for _, th := range rt.TableHeaders {
-		ret += internalLen(th) + rt.PaddingSize*2
+		ret += internalLen(th.Text) + rt.PaddingSize*2
 	}
 	for _, r := range rt.Rows {
 		cr := 0
@@ -936,7 +964,7 @@ func (rt *Table) Width() int {
 func (rt *Table) String() string {
 	var sizes = make([]int, 0)
 	for _, th := range rt.TableHeaders {
-		sizes = append(sizes, internalLen(th))
+		sizes = append(sizes, internalLen(th.Text))
 	}
 	total := 0
 	for _, r := range rt.Rows {
@@ -972,9 +1000,10 @@ func (rt *Table) String() string {
 		if rt.BorderStyle.Size > 0 {
 			rt.cr.Append(rt.BorderStyle.H_LINE, rt.cr.Styles.Header)
 		}
-		rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), rt.cr.Styles.Header)
-		rt.cr.Append(FormatString(h, sizes[j], AlignCenter), rt.cr.Styles.Header)
-		rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), rt.cr.Styles.Header)
+		hst := rt.cr.HeaderMarker(h.Marker)
+		rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), hst)
+		rt.cr.Append(FormatString(h.Text, sizes[j], AlignCenter), hst)
+		rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), hst)
 	}
 	if rt.BorderStyle.Size > 0 {
 		rt.cr.Append(rt.BorderStyle.H_LINE, rt.cr.Styles.Header)
@@ -1004,17 +1033,24 @@ func (rt *Table) String() string {
 			if even == 0 {
 				bst = rt.cr.Styles.HeaderStriped
 			}
+			if r.Highlighted {
+				bst = bst.Background(term.BACKGROUND_HIGHLIGHTED)
+			}
 			for i, c := range r.Cells {
 				if rt.BorderStyle.Size > 0 {
 					rt.cr.Append(rt.BorderStyle.H_LINE, bst)
 				}
-				rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), bst)
-
 				st := rt.cr.Marker(c.Marker, j%2 == 0)
+				if r.Highlighted {
+					st = st.Background(term.BACKGROUND_HIGHLIGHTED)
+				}
+
+				rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), st)
+
 				str := FormatString(c.Text, sizes[i], c.Alignment)
 				rt.cr.Append(str, st)
 
-				rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), bst)
+				rt.cr.Append(strings.Repeat(" ", rt.PaddingSize), st)
 			}
 			if rt.BorderStyle.Size > 0 {
 				rt.cr.Append(rt.BorderStyle.H_LINE, bst)

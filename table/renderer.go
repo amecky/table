@@ -16,18 +16,18 @@ type ConsoleRenderer struct {
 // #094A25, #0C6B37, #F8B324, #EB442C, #BC2023
 const (
 	BG_COLOR     = "#0C0C0C"
-	BG_COLOR_ODD = "#0f0f0f"
+	BG_COLOR_ODD = "#070707"
 	//RED         = "#be0000"
 	//ORANGE      = "#c0a102"
 	//BLUE        = "#1a7091"
 	//GREEN       = "#6cc717"
 	//LIGHT_GREEN = "#166a03"
 
-	RED         = "#cc0000"
-	ORANGE      = "#ff7800"
+	RED         = "#a21a1a"
+	ORANGE      = "#d56f1a"
 	BLUE        = "#1a7091"
-	LIGHT_GREEN = "#008a33"
-	GREEN       = "#82cc00"
+	LIGHT_GREEN = "#389a1d"
+	GREEN       = "#287114"
 
 	//TEXT_COLOR  = "#efefef"
 	TEXT_COLOR   = "#fff"
@@ -35,32 +35,15 @@ const (
 )
 
 func NewConsoleRenderer() *ConsoleRenderer {
-	styles := Styles{
-		Text:                  term.NewStyle("#d0d0d0", "", false),
-		Header:                term.NewStyle(HEADER_COLOR, "", true),
-		PositiveMarker:        term.NewStyle(GREEN, "", true),
-		NegativeMarker:        term.NewStyle(RED, "", true),
-		ClassAMarker:          term.NewStyle(RED, "", true),
-		ClassBMarker:          term.NewStyle(ORANGE, "", true),
-		ClassCMarker:          term.NewStyle(BLUE, "", true),
-		ClassDMarker:          term.NewStyle(LIGHT_GREEN, "", true),
-		ClassEMarker:          term.NewStyle(GREEN, "", true),
-		ClassFMarker:          term.NewStyle("#209c05", "", true),
-		HeaderStriped:         term.NewStyle(HEADER_COLOR, BG_COLOR_ODD, true),
-		TextStriped:           term.NewStyle("#81858d", BG_COLOR_ODD, false),
-		PositiveMarkerStriped: term.NewStyle(GREEN, BG_COLOR_ODD, true),
-		NegativeMarkerStriped: term.NewStyle(RED, BG_COLOR_ODD, true),
-		ClassAMarkerStriped:   term.NewStyle(RED, BG_COLOR_ODD, true),
-		ClassBMarkerStriped:   term.NewStyle(ORANGE, BG_COLOR_ODD, true),
-		ClassCMarkerStriped:   term.NewStyle(BLUE, BG_COLOR_ODD, true),
-		ClassDMarkerStriped:   term.NewStyle(LIGHT_GREEN, BG_COLOR_ODD, true),
-		ClassEMarkerStriped:   term.NewStyle(GREEN, BG_COLOR_ODD, true),
-		ClassFMarkerStriped:   term.NewStyle("#209c05", BG_COLOR_ODD, true),
-	}
+	styles := DEFAULT_STYLE
 	return &ConsoleRenderer{
 		stylesCount: 20,
 		Styles:      styles,
 	}
+}
+
+func (cr *ConsoleRenderer) SetStyle(styles Styles) {
+	cr.Styles = styles
 }
 
 func (cr *ConsoleRenderer) AddStyle(style term.Style) int {
@@ -73,6 +56,32 @@ func (cr *ConsoleRenderer) Append(txt string, style term.Style) {
 
 func (cr *ConsoleRenderer) String() string {
 	return cr.builder.String()
+}
+
+func (cr *ConsoleRenderer) HeaderMarker(mk int) term.Style {
+	if mk >= cr.stylesCount {
+		return cr.additionalStyles[mk-cr.stylesCount]
+	}
+	st := cr.Styles.Text
+	switch mk {
+	case -1:
+		st = cr.Styles.HeaderNegative
+	case 1:
+		st = cr.Styles.HeaderPositive
+	case 2:
+		st = cr.Styles.HeaderClassA
+	case 3:
+		st = cr.Styles.HeaderClassB
+	case 4:
+		st = cr.Styles.HeaderClassC
+	case 5:
+		st = cr.Styles.HeaderClassD
+	case 6:
+		st = cr.Styles.HeaderClassE
+	case 7:
+		st = cr.Styles.HeaderClassF
+	}
+	return st
 }
 
 func (cr *ConsoleRenderer) Marker(mk int, striped bool) term.Style {

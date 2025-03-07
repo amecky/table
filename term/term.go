@@ -25,28 +25,29 @@ type Style struct {
 }
 
 const (
-	BLACK                = "#0c0c0c"
-	RED                  = "#cc0000"
-	GREEN                = "#4e9a06"
-	YELLOW               = "#c4a000"
-	BLUE                 = "#3465a4"
-	PURPLE               = "#75507b"
-	CYAN                 = "#06989a"
-	WHITE                = "#d3d7cf"
-	GRAY                 = "#81858d"
-	BRIGHT_BLACK         = "#555753"
-	BRIGHT_RED           = "#ef2929"
-	BRIGHT_GREEN         = "#8ae234"
-	BRIGHT_YELLOW        = "#fce94f"
-	BRIGHT_BLUE          = "#729fcf"
-	BRIGHT_PURPLE        = "#ad7fa8"
-	BRIGHT_CYAN          = "#34e2e2"
-	BRIGHT_WHITE         = "#eeeeec"
-	BACKGROUND           = "#0c0c0c"
-	BACKGROUND_ODD       = "#0d0d0d"
-	FOREGROUND           = "#eeeeec"
-	CURSOR               = "#bbbbbb"
-	SELECTION_BACKGROUND = "#b5d5ff"
+	BLACK                  = "#0c0c0c"
+	RED                    = "#cc0000"
+	GREEN                  = "#4e9a06"
+	YELLOW                 = "#c4a000"
+	BLUE                   = "#3465a4"
+	PURPLE                 = "#75507b"
+	CYAN                   = "#06989a"
+	WHITE                  = "#d3d7cf"
+	GRAY                   = "#81858d"
+	BRIGHT_BLACK           = "#555753"
+	BRIGHT_RED             = "#ef2929"
+	BRIGHT_GREEN           = "#8ae234"
+	BRIGHT_YELLOW          = "#fce94f"
+	BRIGHT_BLUE            = "#729fcf"
+	BRIGHT_PURPLE          = "#ad7fa8"
+	BRIGHT_CYAN            = "#34e2e2"
+	BRIGHT_WHITE           = "#eeeeec"
+	BACKGROUND             = "#0c0c0c"
+	BACKGROUND_ODD         = "#0d0d0d"
+	BACKGROUND_HIGHLIGHTED = "#2a2a2a"
+	FOREGROUND             = "#eeeeec"
+	CURSOR                 = "#bbbbbb"
+	SELECTION_BACKGROUND   = "#b5d5ff"
 )
 
 var TEXT_STYLE = NewStyle(WHITE, "", false)
@@ -64,6 +65,14 @@ func NewStyle(f, b string, bld bool) Style {
 	}
 	if bld {
 		s.flags = s.flags | 4
+	}
+	return s
+}
+
+func (s Style) Background(b string) Style {
+	if b != "" {
+		s.background = Hex(b)
+		s.flags = s.flags | 2
 	}
 	return s
 }

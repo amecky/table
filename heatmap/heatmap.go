@@ -66,8 +66,9 @@ var WordSymbols = symbols{
 }
 
 type HeatMapLine struct {
-	Name    string
-	Entries []int
+	Name      string
+	Entries   []int
+	Delimiter bool
 }
 type HeatMap struct {
 	name      string
@@ -81,6 +82,7 @@ type HeatMap struct {
 	padding   int
 	symbols   symbols
 	delimiter int
+	emptyChar string
 }
 
 func New(name string) *HeatMap {
@@ -91,20 +93,21 @@ func New(name string) *HeatMap {
 		padding:   1,
 		delimiter: 0,
 		symbols:   BlockSymbols,
+		emptyChar: " ",
 		scheme: ColorScheme{
-			Text: term.NewStyle(term.WHITE, term.BACKGROUND, false),
-			E:    term.NewStyle("#ff0000", term.BACKGROUND, false),
-			D:    term.NewStyle("#ff6700", term.BACKGROUND, false),
-			C:    term.NewStyle(term.BLUE, term.BACKGROUND, false),
-			B:    term.NewStyle("#6fa287", term.BACKGROUND, false),
-			A:    term.NewStyle("#00ff00", term.BACKGROUND, false),
+			Text: term.NewStyle(term.WHITE, "", false),
+			E:    term.NewStyle("#ff0000", "", false),
+			D:    term.NewStyle("#ff6700", "", false),
+			C:    term.NewStyle(term.BLUE, "", false),
+			B:    term.NewStyle("#20600B", "", false),
+			A:    term.NewStyle("#00ff00", "", false),
 		},
 		oddScheme: ColorScheme{
 			Text: term.NewStyle(term.GRAY, term.BACKGROUND_ODD, false),
 			E:    term.NewStyle("#ff0000", term.BACKGROUND_ODD, false),
 			D:    term.NewStyle("#ff6700", term.BACKGROUND_ODD, false),
 			C:    term.NewStyle(term.BLUE, term.BACKGROUND_ODD, false),
-			B:    term.NewStyle("#6fa287", term.BACKGROUND_ODD, false),
+			B:    term.NewStyle("#20600B", term.BACKGROUND_ODD, false),
 			A:    term.NewStyle("#00ff00", term.BACKGROUND_ODD, false),
 		},
 	}
@@ -142,6 +145,11 @@ func (h *HeatMap) Padding(p int) *HeatMap {
 
 func (h *HeatMap) Delimiter(d int) *HeatMap {
 	h.delimiter = d
+	return h
+}
+
+func (h *HeatMap) EmptyChar(s string) *HeatMap {
+	h.emptyChar = s
 	return h
 }
 
@@ -194,84 +202,128 @@ func (hm *HeatMap) AddLine(name string, values []int) {
 	})
 }
 
-func (hm *HeatMap) String() string {
+func (hm *HeatMap) AddDelimiter() {
+	hm.Lines = append(hm.Lines, HeatMapLine{
+		Name:      "",
+		Delimiter: true,
+	})
+}
 
-	es := " " + strings.Repeat(" ", hm.padding)
+func (hm *HeatMap) AddDelimiterText(txt string) {
+	hm.Lines = append(hm.Lines, HeatMapLine{
+		Name:      txt,
+		Delimiter: true,
+	})
+}
+
+func (hm *HeatMap) String() string {
+	es := hm.emptyChar + strings.Repeat(" ", hm.padding)
 	del := "|" + strings.Repeat(" ", hm.padding)
 	dl := len(del)
 
 	sb := strings.Builder{}
 	if hm.name != "" {
+		sb.WriteRune(' ')
 		sb.WriteString(hm.scheme.Text.Convert(hm.name))
 	}
 	sb.WriteRune('\n')
 	max := 0
 	for _, l := range hm.Lines {
-		if len(l.Name) > max {
+		if len(l.Name) > max && !l.Delimiter {
 			max = len(l.Name)
 		}
 	}
 	max += 2
 	me := 0
 	for _, l := range hm.Lines {
-		if len(l.Entries)*2 > me {
-			me = len(l.Entries) * 2
+		if len(l.Entries) > me {
+			me = len(l.Entries)
 		}
 	}
+	q := hm.recent / hm.delimiter
 	if hm.recent > 0 {
-		me = hm.recent * 2
+		me = hm.recent*(hm.padding+1) + q*(hm.padding+1)
 	}
-	sb.WriteString(hm.scheme.Text.Convert(strings.Repeat("-", me+max)))
-	sb.WriteRune('\n')
-
-	for j, r := range hm.Lines {
-		start := hm.offset
-		if hm.recent > 0 {
-			start = len(r.Entries) - hm.recent
-		}
-		st := hm.scheme.Text
-		if j%2 == 1 {
-			st = hm.oddScheme.Text
-		}
-		sb.WriteString(st.Convert(r.Name))
-		d := max - len(r.Name)
-		if d > 0 {
-			sb.WriteString(st.Convert(strings.Repeat(" ", d)))
-		}
-		cnt := 0
-		for i, v := range r.Entries {
-			cv := v
-			if i >= start {
-				if hm.delimiter > 0 && i%hm.delimiter == 0 {
-					sb.WriteString(hm.scheme.Text.Convert(del))
-					cnt += dl
-				}
-				if cv > 4 {
-					cv = 4
-				}
-				if v < 0 {
-					cv = 0
-				}
-				s := hm.symbols.symbol[cv] + strings.Repeat(" ", hm.padding)
-				sl := len(s)
-				hst := hm.scheme.Get(cv)
-				if j%2 == 1 {
-					hst = hm.oddScheme.Get(cv)
-				}
-				if v < 0 {
-					sb.WriteString(hst.Convert(es))
-				} else {
-					sb.WriteString(hst.Convert(s))
-				}
-				cnt += sl
-
-			}
-		}
-		d = me - cnt
-		if d > 0 {
-			sb.WriteString(st.Convert(strings.Repeat(" ", d)))
+	total := me + max
+	if hm.name != "" {
+		sb.WriteString(hm.scheme.Text.Convert(strings.Repeat("-", me+max+1)))
+		sb.WriteRune('\n')
+	}
+	if len(hm.headers) > 0 {
+		sb.WriteString(hm.scheme.Text.Convert(strings.Repeat(" ", max-1)))
+		for _, h := range hm.headers {
+			sb.WriteString(hm.scheme.Text.Convert(h))
+			d := me/q - 5
+			sb.WriteString(hm.scheme.Text.Convert(strings.Repeat(" ", d)))
 		}
 		sb.WriteRune('\n')
+	}
+	for _, r := range hm.Lines {
+		if r.Delimiter {
+			if r.Name != "" {
+				l := (total - len(r.Name) - 2) / 2
+				sb.WriteString(hm.scheme.Text.Convert(strings.Repeat("-", l)))
+				sb.WriteRune(' ')
+				sb.WriteString(hm.scheme.Text.Convert(r.Name))
+				sb.WriteRune(' ')
+				l = total - l - len(r.Name) - 2
+				sb.WriteString(hm.scheme.Text.Convert(strings.Repeat("-", l)))
+			} else {
+				sb.WriteString(hm.scheme.Text.Convert(strings.Repeat("-", total)))
+			}
+			sb.WriteRune('\n')
+
+		} else {
+			start := hm.offset
+			if hm.recent > 0 {
+				start = len(r.Entries) - hm.recent
+			}
+			st := hm.scheme.Text
+			//if j%2 == 1 {
+			//	st = hm.oddScheme.Text
+			//}
+			sb.WriteRune(' ')
+			sb.WriteString(st.Convert(r.Name))
+			d := max - len(r.Name)
+			if d > 0 {
+				sb.WriteString(st.Convert(strings.Repeat(" ", d)))
+			}
+			cnt := 0
+			for i, v := range r.Entries {
+				cv := v
+				if i >= start {
+					if hm.delimiter > 0 && i%hm.delimiter == 0 {
+						sb.WriteString(hm.scheme.Text.Convert(del))
+						cnt += dl
+					}
+					if cv > 4 {
+						cv = 4
+					}
+					if v < 0 {
+						cv = 0
+					}
+					s := hm.symbols.symbol[cv] + strings.Repeat(" ", hm.padding)
+					sl := len(s)
+					hst := hm.scheme.Get(cv)
+					//if j%2 == 1 {
+					//	hst = hm.oddScheme.Get(cv)
+					//}
+					if v < 0 {
+						hst = hm.scheme.Text
+						sb.WriteString(hst.Convert(es))
+					} else {
+						sb.WriteString(hst.Convert(s))
+					}
+					cnt += sl
+
+				}
+			}
+			d = me - cnt
+			if d > 0 {
+				sb.WriteString(st.Convert(strings.Repeat(" ", d)))
+			}
+			sb.WriteRune('\n')
+		}
 	}
 	return sb.String()
 }
@@ -300,16 +352,18 @@ func (dr DefaultHeatmapHtmlRenderer) EndRow() string {
 func (dr DefaultHeatmapHtmlRenderer) RenderCell(v int) string {
 	ret := "<td style=\"color:"
 	switch v {
-	case 0:
-		ret += "#ff0000"
 	case 1:
-		ret += "#ff6700"
+		ret += "#ff0000"
 	case 2:
-		ret += term.BLUE
+		ret += "#ff6700"
 	case 3:
-		ret += "#6fa287"
+		ret += term.BLUE
 	case 4:
+		ret += "#6fa287"
+	case 5:
 		ret += "#00ff00"
+	default:
+		ret += "#ffffff"
 	}
 	ret += "; text-align:center\">"
 	ret += dr.symbols.symbol[v]
